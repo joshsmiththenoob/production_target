@@ -1,0 +1,73 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+
+# Local AI/project working context (contains machine-specific paths)
+CHATGPT_PROJECT_CONTEXT.md
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.hypothesis/
+.cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+
+# Django runtime data
+*.sqlite3
+*.sqlite3-journal
+media/
+staticfiles/
+
+# Node, Vite, and TypeScript
+node_modules/
+dist/
+coverage/
+.vite/
+.vitest/
+*.tsbuildinfo
+*.timestamp-*.mjs
+.eslintcache
+.npm/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.bkp
+*.tmp
+*.temp
+*.orig
+*.rej
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# General runtime logs
+*.log
