@@ -45,6 +45,7 @@ coverage/
 *.timestamp-*.mjs
 .eslintcache
 .npm/
+.npm-cache/
 .pnpm-store/
 npm-debug.log*
 yarn-debug.log*

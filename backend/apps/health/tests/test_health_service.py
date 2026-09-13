@@ -28,7 +28,7 @@ class HealthServiceTests(TestCase):
             "apps.health.service.connection.cursor",
             return_value=cursor_context,
         ):
-            result = HealthService().get(self.request)
+            result = HealthService().check()
 
         cursor.execute.assert_called_once_with("SELECT 1")
         cursor.fetchone.assert_called_once_with()

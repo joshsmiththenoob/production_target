@@ -1,6 +1,6 @@
 # 年度生產目標比較器
 
-Phase 0 建立 React → Django REST Framework → PostgreSQL 的第一條可測試資料流。目前只有 health check，尚未建立任何業務 model 或演算法。
+Phase 0 建立 React → Django REST Framework → PostgreSQL 的第一條可測試資料流。Phase 0.5 加入共用 Layout、首頁任務卡片與 React Router；兩個業務模組目前只有 placeholder，尚未建立業務 model 或演算法。
 
 ## 固定版本
 
@@ -57,14 +57,25 @@ Phase 0 建立 React → Django REST Framework → PostgreSQL 的第一條可測
 
 ## 資料流（用 DRF 概念理解 React）
 
-1. App component 類似一個會依狀態重新 render 的 view fragment。
+1. App 定義 routes，類似 Django URLConf；AppLayout 類似 base.html，Outlet 類似 content block，依 URL 放入對應 Page。
 2. useState 保存瀏覽器端的 request 狀態，角色類似 view 執行期間的區域狀態，但它會跨 render 保留。
-3. useEffect 在 component 掛載後呼叫 /api/v1/health/；Vite dev server 把 /api proxy 到 Compose service backend:8000。
+3. HomePage 組合 FeatureCard 與 HealthStatus。HealthStatus 的 useEffect 在掛載後透過 fetchHealth 呼叫 /api/v1/health/；Vite dev server 把 /api proxy 到 Compose service backend:8000。離開首頁時 AbortController 取消請求，失敗時可重新檢查。
 4. Django URL 將 request 交給 HealthView，view 用目前 database connection 執行 SELECT 1。
 5. Promise 完成後，React 將 state 改為 success 或 error，component 隨 state 自動重新 render。
 6. PostgreSQL hostname 是 Compose service 名稱 db；localhost 在 backend container 內只代表 backend container 自己。
 
 ## 目前範圍
 
-Phase 0 刻意不包含 ProductionTarget model、檔案上傳、JWT、Redux、Celery、Redis、Nginx 或業務演算法。完整脈絡見 docs/PROJECT_CONTEXT.md。
+Phase 0／0.5 刻意不包含 ProductionTarget model、檔案上傳、JWT、Redux、Celery、Redis、Nginx 或業務演算法。完整脈絡見 docs/PROJECT_CONTEXT.md。
 
+## Phase 0.5 路由驗收
+
+- `/`：任務選擇與 HealthStatus。
+- `/fruit-merge`：果品整併說明與「功能建置中」。
+- `/table-compare`：表格比對說明與「尚未開放」。
+
+啟動 Compose 後，在 http://localhost:5173 分別點擊兩張卡片、返回首頁，並直接開啟及重新整理上述三個 URL。Vite 開發伺服器的 SPA fallback 會回傳 index.html，再由 BrowserRouter 配對 Page；這不代表已設定正式環境的 fallback。
+
+Desktop 超過 1024px 為兩欄，Tablet／Mobile 為單欄。可用 Tab 鍵確認導覽、CTA 與 retry 的 focus 樣式。
+
+`frontend/src/test_app.tsx` 是未匯入 useState、含未使用變數的獨立練習草稿，未被 application 匯入。保留原檔，在 ESLint 與 TypeScript 設定僅排除此檔；其餘 src 與 tests 仍接受檢查。
