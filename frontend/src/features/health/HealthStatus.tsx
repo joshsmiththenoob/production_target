@@ -28,7 +28,7 @@ function HealthStatus() {
   }, [requestKey])
 
   return (
-    <section aria-label="系統連線狀態">
+    <section className="health-status" aria-label="系統連線狀態">
       <div
         className={'status-card status-card--' + health.status}
         aria-live="polite"
@@ -96,4 +96,3 @@ function HealthStatus() {
 }
 
 export default HealthStatus
-

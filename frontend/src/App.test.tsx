@@ -24,11 +24,17 @@ afterEach(() => vi.unstubAllGlobals())
 describe('application routes', () => {
   it('shows the home heading and both task entries', () => {
     renderRoute()
-    expect(screen.getByRole('heading', { level: 1, name: '今天要處理哪一項工作？' })).toBeInTheDocument()
+    const hero = screen.getByRole('region', { name: '今天要處理哪一項工作？' })
+    expect(within(hero).getByRole('heading', { level: 1, name: '今天要處理哪一項工作？' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '果品生產量值整併' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'DOCX／XLSX 表格比對' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '開始果品整併' })).toHaveAttribute('href', '/fruit-merge')
-    expect(screen.getByRole('link', { name: '查看比對功能說明' })).toHaveAttribute('href', '/table-compare')
+    const primaryCta = screen.getByRole('link', { name: '開始果品整併' })
+    expect(primaryCta).toHaveAttribute('href', '/fruit-merge')
+    expect(primaryCta).toHaveClass('cta--primary')
+
+    const outlineCta = screen.getByRole('link', { name: '查看比對功能說明' })
+    expect(outlineCta).toHaveAttribute('href', '/table-compare')
+    expect(outlineCta).toHaveClass('cta--outline')
   })
   // 針對 cta, path, placeholder 進行測試 
   it.each([

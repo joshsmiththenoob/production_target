@@ -11,8 +11,10 @@ interface FeatureCardProps {
 }
 
 export default function FeatureCard({ title, input, process, output, cta, to, status }: FeatureCardProps) {
+  const variant = status ? 'planned' : 'available'
+
   return (
-    <article className="feature-card">
+    <article className={`feature-card feature-card--${variant}`}>
       <h2>{title}</h2>
       {status && <p className="feature-status">{status}</p>}
       <dl>
@@ -20,7 +22,9 @@ export default function FeatureCard({ title, input, process, output, cta, to, st
         <div><dt>處理</dt><dd>{process}</dd></div>
         <div><dt>輸出</dt><dd>{output}</dd></div>
       </dl>
-      <Link className="cta" to={to}>{cta}<span aria-hidden="true"> →</span></Link>
+      <Link className={`cta cta--${status ? 'outline' : 'primary'}`} to={to}>
+        {cta}<span aria-hidden="true"> →</span>
+      </Link>
     </article>
   )
 }

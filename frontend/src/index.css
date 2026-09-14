@@ -1,20 +1,102 @@
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --color-text: #183c2a;
-  --color-muted: #52665b;
-  --color-primary: #244f36;
-  --color-surface: #fff;
-  --color-border: #d8e1da;
-  --space: 1rem;
-  --radius: 1rem;
-  --shadow: 0 4px 20px rgb(31 76 52 / 5%);
-  color: var(--color-text);
-  background: #f6f8f5;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  line-height: 1.6;
+@font-face {
+  font-family: 'JasonHandwriting1';
+  src: url('/fonts/JasonHandwriting1.woff2') format('woff2');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
 }
-* { box-sizing: border-box; }
-body { min-width: 320px; min-height: 100vh; margin: 0; }
-a { color: var(--color-primary); text-underline-offset: 0.25em; }
-a:focus-visible, button:focus-visible { outline: 3px solid #9b650a; outline-offset: 4px; }
+
+:root {
+  --color-background: #F5F0E4;
+  --color-surface: #FFFEFA;
+  --color-surface-muted: #EEE6D5;
+  --color-hero: #263F34;
+  --color-text: #242620;
+  --color-text-muted: #565B52;
+  --color-text-inverse: #FFF8E7;
+  --color-border: #B7AD98;
+  --color-border-strong: #625C50;
+  --color-primary: #3D5B32;
+  --color-primary-hover: #2F4726;
+  --color-outline-hover: #E7EDDF;
+  --color-accent: #A55E32;
+  --color-link: #1C5D78;
+  --color-success: #2F6B47;
+  --color-success-bg: #E5F2E8;
+  --color-error: #B3261E;
+  --color-error-bg: #FAE8E6;
+  --color-focus: #FFDD00;
+  --color-focus-text: #0B0C0C;
+
+  --font-body: 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-handwritten: 'JasonHandwriting1', 'Noto Sans TC', system-ui, sans-serif;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1.5rem;
+
+  --shadow-card: 0 0.25rem 0.75rem rgb(36 38 32 / 8%);
+  --shadow-card-hover: 0 0.5rem 1rem rgb(36 38 32 / 12%);
+  --transition-duration: 150ms;
+  --focus-ring-width: 3px;
+  --focus-keyline-width: 2px;
+
+  --content-wide: 80rem;
+  --content-narrow: 56rem;
+
+  color: var(--color-text);
+  background: var(--color-background);
+  color-scheme: light;
+  font-family: var(--font-body);
+  font-synthesis: none;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--color-background);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-background);
+}
+
+a {
+  color: var(--color-link);
+  text-underline-offset: 0.22em;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 var(--focus-keyline-width) var(--color-focus-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

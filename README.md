@@ -1,6 +1,6 @@
 # 年度生產目標比較器
 
-Phase 0 建立 React → Django REST Framework → PostgreSQL 的第一條可測試資料流。Phase 0.5 加入共用 Layout、首頁任務卡片與 React Router；兩個業務模組目前只有 placeholder，尚未建立業務 model 或演算法。
+Phase 0 建立 React → Django REST Framework → PostgreSQL 的第一條可測試資料流。Phase 0.5 加入共用 Layout、首頁任務卡片與 React Router；Phase 0.6 採用「林下工作桌 Woodland Desk」視覺方向，加入集中式 design tokens、清楚的任務層級與可辨識的鍵盤 focus。兩個業務模組目前仍只有 placeholder，尚未建立業務 model 或演算法。
 
 ## 固定版本
 
@@ -79,3 +79,17 @@ Phase 0／0.5 刻意不包含 ProductionTarget model、檔案上傳、JWT、Redu
 Desktop 超過 1024px 為兩欄，Tablet／Mobile 為單欄。可用 Tab 鍵確認導覽、CTA 與 retry 的 focus 樣式。
 
 `frontend/src/test_app.tsx` 是未匯入 useState、含未使用變數的獨立練習草稿，未被 application 匯入。保留原檔，在 ESLint 與 TypeScript 設定僅排除此檔；其餘 src 與 tests 仍接受檢查。
+
+## Phase 0.6 視覺基線
+
+- `frontend/src/index.css` 集中管理 semantic colors、字體、spacing、radius、shadow、focus 與 transition tokens。
+- 首頁依序呈現深林綠 Hero、兩個任務入口與 compact HealthStatus；第一個可用功能採 primary CTA，規劃中的功能採 outline CTA。
+- 工作頁維持暖白 surface 與高對比文字，不把深色 Hero 背景延伸到未來表單或結果區。
+- 動態效果為 180ms，並由 `prefers-reduced-motion: reduce` 關閉非必要動畫與 transition。
+- 原創枝葉圖形為 inline SVG 純裝飾，不包含正式角色或第三方照片。
+
+### JasonHandwriting1 字體
+
+專案只載入 `frontend/public/fonts/JasonHandwriting1.woff2`，檔案大小為 4,326,200 bytes，SHA-256 為 `A937A66F01912696B302F23188FBE168585034C5E3A6F794A58717F8A6496250`。檔案取自作者游清松的[官方 GitHub repository](https://github.com/jasonhandwriting/JasonHandwriting)所提供的 `JasonHandWriting1-5_WebFont_woff2.zip`，只從壓縮檔取出第一套字體，沒有載入其他字型。
+
+作者在官方 README 宣告 JasonHandwriting 系列採用 **SIL Open Font License**，可供個人與商業使用。網頁透過本機 WOFF2 與 `font-display: swap` 載入，不在瀏覽器執行時連線第三方 raw URL。字體只用於品牌與 Hero 短句；載入前及載入失敗時依序 fallback 至 `Noto Sans TC`、system UI 與 sans-serif。

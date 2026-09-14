@@ -5,7 +5,7 @@ export default function AppLayout() {
   return (
     <>
       <Header />
-      <main className="page-shell"><Outlet /></main>
+      <main className="site-main"><Outlet /></main>
     </>
   )
 }
