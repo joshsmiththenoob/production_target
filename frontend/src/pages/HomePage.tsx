@@ -1,6 +1,8 @@
 import FeatureCard from '../components/FeatureCard'
 import HomeHero from '../components/HomeHero'
 import HealthStatus from '../features/health/HealthStatus'
+import fruitMergeImage from '../assets/feature-cards/fruit-merge-card.png'
+import tableCompareImage from '../assets/feature-cards/table-compare-card.png'
 
 export default function HomePage() {
   return (
@@ -10,20 +12,24 @@ export default function HomePage() {
         <div className="feature-grid">
           <FeatureCard
             title="果品生產量值整併"
-            input="產量產值與種植收穫面積 Excel"
-            process="檢查配對、整併、依作物查詢"
-            output="完整或篩選後的 Excel"
-            cta="開始果品整併"
+            summary="將統計處 SD 產出的同品項生產量與生產值資料，整併為單一匯總資料。"
+            status="available"
             to="/fruit-merge"
+            accessibleLabel="前往果品生產量值整併"
+            mediaVariant="fruit-merge"
+            imageSrc={fruitMergeImage}
+            imageAlt=""
           />
+
           <FeatureCard
             title="DOCX／XLSX 表格比對"
-            input="Word 與 Excel"
-            process="選擇表格、key 與比對欄位"
-            output="兩種檔案之比對結果"
-            status="尚未開放"
-            cta="查看比對功能說明"
+            summary="比對 Word 與 Excel 表格的表頭、欄位名稱及欄位值，快速確認資料差異。"
+            status="planned"
             to="/table-compare"
+            accessibleLabel="查看 DOCX／XLSX 表格比對功能說明（規劃中）"
+            mediaVariant="table-compare"
+            imageSrc={tableCompareImage}
+            imageAlt=""
           />
         </div>
         <HealthStatus />
