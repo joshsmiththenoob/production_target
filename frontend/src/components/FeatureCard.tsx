@@ -21,6 +21,8 @@ interface FeatureMediaProps {
   status: FeatureCardStatus
 }
 
+// statusLables 就像是 dictionary 一樣，但是會指定, FeatureCardStatus的所有屬性為key, 其 value 必須指定為字串string
+// -> Record<Key的型別, Value的型別>
 const statusLabels: Record<FeatureCardStatus, string> = {
   available: '已開放',
   planned: '規劃中',
@@ -31,6 +33,7 @@ function FeatureMedia({ variant, imageSrc, imageAlt = '', status }: FeatureMedia
     <div className={`feature-media feature-media--${variant}`}>
       <img className="feature-media__image" src={imageSrc} alt={imageAlt} />
       <p className={`feature-status feature-status--${status}`}>
+        {/* statusLa */}
         {statusLabels[status]}
       </p>
     </div>
