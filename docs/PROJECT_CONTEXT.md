@@ -5,7 +5,7 @@
 
 ## 專案定位
 
-本 repository 將建立單一 Django／React 農業資料處理平台。長期包含「果品生產量值整併」與「DOCX／XLSX 表格比對」兩個模組，但目前只做 Phase 0：可執行、可測試的現代化專案骨架與 health-check 垂直切片。
+本 repository 將建立單一 Django／React 農業資料處理平台。長期包含「生產量值整併」與「DOCX／XLSX 表格比對」兩個模組，但目前只做 Phase 0：可執行、可測試的現代化專案骨架與 health-check 垂直切片。
 
 ## 技術基線
 
@@ -44,4 +44,3 @@ React 只處理 UI、互動、瀏覽器狀態與 HTTP 呼叫。DRF 負責 reques
 - README 清楚記錄啟動、測試、停止與清理指令。
 
 完整願景與後續 phase 仍以 Notion 原始規格為準。
-

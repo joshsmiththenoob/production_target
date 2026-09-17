@@ -1,7 +1,7 @@
 import FeatureCard from '../components/FeatureCard'
 import HomeHero from '../components/HomeHero'
 import HealthStatus from '../features/health/HealthStatus'
-import fruitMergeImage from '../assets/feature-cards/fruit-merge-card.png'
+import volumePriceMergeImage from '../assets/feature-cards/volume-price-merge-card.png'
 import tableCompareImage from '../assets/feature-cards/table-compare-card.png'
 
 export default function HomePage() {
@@ -11,13 +11,13 @@ export default function HomePage() {
       <div className="home-content">
         <div className="feature-grid">
           <FeatureCard
-            title="果品生產量值整併"
+            title="生產量值整併"
             summary="將統計處 SD 產出的同品項生產量與生產值資料，整併為單一匯總資料。"
             status="available"
-            to="/fruit-merge"
-            accessibleLabel="前往果品生產量值整併"
-            mediaVariant="fruit-merge"
-            imageSrc={fruitMergeImage}
+            to="/volume-price-merge"
+            accessibleLabel="前往生產量值整併"
+            mediaVariant="volume-price-merge"
+            imageSrc={volumePriceMergeImage}
             imageAlt=""
           />
 

@@ -71,7 +71,7 @@ Phase 0／0.5 刻意不包含 ProductionTarget model、檔案上傳、JWT、Redu
 ## Phase 0.5 路由驗收
 
 - `/`：任務選擇與 HealthStatus。
-- `/fruit-merge`：果品整併說明與「功能建置中」。
+- `/volume-price-merge`：生產量值整併工作頁。
 - `/table-compare`：表格比對說明與「尚未開放」。
 
 啟動 Compose 後，在 http://localhost:5173 分別點擊兩張卡片、返回首頁，並直接開啟及重新整理上述三個 URL。Vite 開發伺服器的 SPA fallback 會回傳 index.html，再由 BrowserRouter 配對 Page；這不代表已設定正式環境的 fallback。

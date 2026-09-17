@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 
 type FeatureCardStatus = 'available' | 'planned'
-type FeatureMediaVariant = 'fruit-merge' | 'table-compare'
+type FeatureMediaVariant = 'volume-price-merge' | 'table-compare'
 
 interface FeatureCardProps {
   title: string
