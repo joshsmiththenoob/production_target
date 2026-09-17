@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "rest_framework",
     "apps.health",
+    "apps.volume_price_merge"
 ]
 
 MIDDLEWARE = [
