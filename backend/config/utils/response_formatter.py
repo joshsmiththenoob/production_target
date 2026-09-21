@@ -32,11 +32,11 @@ class ResponseFormatter:
 
 
     @staticmethod
-    def error_response(code: str, message: str, *, field_error: dict[str, Any] = None):
-        response_data = dict[str, Any] = {
+    def error_response(code: str, message: str, *, field_errors: dict[str, Any] = None):
+        response_data: dict[str, Any] = {
             "code": code,
             "message": message,
-            "field_error": field_error
+            "field_errors": field_errors
         }
 
         return response_data

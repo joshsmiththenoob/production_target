@@ -6,6 +6,10 @@ from openpyxl import load_workbook
 
 
 class WorkbookReader:
+
+    def __init__(self):
+        pass
+
     def read_title_text(self, uploaded_file: UploadedFile) -> str:
         # seek(0)
         uploaded_file.seek(0)

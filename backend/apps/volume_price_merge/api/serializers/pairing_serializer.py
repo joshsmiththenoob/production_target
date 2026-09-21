@@ -27,16 +27,12 @@ class PairingUploadSerializer(serializers.Serializer):
     _xlsx_validator = FileValidator()
 
     production_files = serializers.ListField(
-        child = serializers.FileField(
-            validators = [_xlsx_validator]
-        ),
-        allow_empty = False
+        child = serializers.FileField(validators = [_xlsx_validator]),
+        allow_empty = False,
     )
 
     area_files = serializers.ListField(
-        child = serializers.FileField(
-            validators = [_xlsx_validator]
-        ),
-        allow_empty = False
+        child = serializers.FileField(validators = [_xlsx_validator]),
+        allow_empty = False,
     )
 

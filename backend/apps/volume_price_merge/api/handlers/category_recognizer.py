@@ -14,6 +14,9 @@ class CategoryRecognizer:
         pass
 
     def recognize(self, file_name: str, title_text: str) -> str:
+        """
+        To recognize if file name and processed title of sheet are the same
+        """
         file_category = self.__normalize(file_name)
         title_category = self.__normalize(title_text)
 
@@ -26,7 +29,7 @@ class CategoryRecognizer:
 
 
     def __normalize(self, value: str) -> str:
-        name = re.sub(r"\.(xlsx|xls)$", "", name, flags=re.IGNORECASE)
+        name = re.sub(r"\.(xlsx|xls)$", "", value, flags=re.IGNORECASE)
         patterns = [
             r"110\s*[-－至到~～]?\s*113\s*年?",
             r"產量及產值",
