@@ -12,6 +12,8 @@ from ..handlers.category_recognizer import CategoryRecognizer
 from ..handlers.pair_validator import PairValidator
 
 
+
+
 # create specific type to resctrict the type of argument
 PROPERTY_TYPE = Literal["production", "area"]
 
@@ -64,3 +66,44 @@ class PairingService:
             )
 
         return inspected_files
+
+
+
+from datetime import timedelta
+
+from django.db import transaction
+from django.utils import timezone
+
+from apps.jobs.models import Job
+from ...models import MergeInputFile, VolumePriceMergeJob
+
+
+class MergeJobCreationService:
+    @transaction.atomic
+    def create(self, preview, file_infos, owner=None):
+        job = Job.objects.create(
+            kind=Job.Kind.VOLUME_PRICE_MERGE,
+            status=Job.Status.PENDING,
+            owner=owner,
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+
+        merge_job = VolumePriceMergeJob.objects.create(
+            job=job,
+            pairing_preview=preview,
+        )
+
+        for info in file_infos:
+            uploaded_file = info["uploaded_file"]
+            uploaded_file.seek(0)
+
+            MergeInputFile.objects.create(
+                merge_job=merge_job,
+                role=info["property_type"],
+                major_category=info["major_category"],
+                original_name=uploaded_file.name,
+                file=uploaded_file,
+                size_bytes=uploaded_file.size,
+            )
+
+        return job, merge_job
