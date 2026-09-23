@@ -21,10 +21,19 @@ class PairingServiceTests(TestCase):
 
         result = self.service.build_preview([production], [area])
 
-        self.assertTrue(result["is_valid"])
-        self.assertEqual(result["errors"], [])
-        self.assertEqual(result["pairs"][0]["major_category"], "果品")
-        self.assertTrue(result["pairs"][0]["complete"])
+        pairing_result = result["pairing_result"]
+        self.assertTrue(pairing_result["is_valid"])
+        self.assertEqual(pairing_result["errors"], [])
+        self.assertEqual(pairing_result["pairs"][0]["major_category"], "果品")
+        self.assertTrue(pairing_result["pairs"][0]["complete"])
+
+        file_infos = result["uploaded_file_infos"]
+        self.assertEqual(len(file_infos), 2)
+        self.assertIs(file_infos[0]["uploaded_file"], production)
+        self.assertEqual(file_infos[0]["property_type"], "production")
+        self.assertIs(file_infos[1]["uploaded_file"], area)
+        self.assertEqual(file_infos[1]["property_type"], "area")
+        self.assertTrue(all(info["major_category"] == "果品" for info in file_infos))
 
     def test_different_categories_create_incomplete_pairs(self) -> None:
         production = make_xlsx_upload(
@@ -36,10 +45,13 @@ class PairingServiceTests(TestCase):
 
         result = self.service.build_preview([production], [area])
 
-        self.assertFalse(result["is_valid"])
-        self.assertEqual(len(result["pairs"]), 2)
-        self.assertTrue(all(not pair["complete"] for pair in result["pairs"]))
-        self.assertEqual(len(result["errors"]), 2)
+        pairing_result = result["pairing_result"]
+        self.assertFalse(pairing_result["is_valid"])
+        self.assertEqual(len(pairing_result["pairs"]), 2)
+        self.assertTrue(
+            all(not pair["complete"] for pair in pairing_result["pairs"])
+        )
+        self.assertEqual(len(pairing_result["errors"]), 2)
 
     def test_mismatched_filename_and_a1_raise_value_error(self) -> None:
         production = make_xlsx_upload(
