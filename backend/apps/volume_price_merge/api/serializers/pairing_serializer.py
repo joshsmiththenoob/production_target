@@ -21,8 +21,6 @@ class FileValidator:
 
 
 
-
-
 class PairingUploadSerializer(serializers.Serializer):
     _xlsx_validator = FileValidator()
 
@@ -36,3 +34,36 @@ class PairingUploadSerializer(serializers.Serializer):
         allow_empty = False,
     )
 
+class PairSerializer(serializers.Serializer):
+    """
+    result of every pair from all input files (production + area)
+    """
+    major_category = serializers.CharField()
+    production_files = serializers.ListField(child=serializers.CharField())
+    area_files = serializers.ListField(child=serializers.CharField())
+    complete = serializers.BooleanField()
+
+
+class PairingResultSerializer(serializers.Serializer):
+    """
+    Coollection of all pair's result
+    """
+    is_valid = serializers.BooleanField()
+    pairs = PairSerializer(many=True)
+    errors = serializers.ListField(child=serializers.CharField())
+
+
+class CreatedJobDataSerializer(serializers.Serializer):
+    """
+    Record after created job
+    """
+    public_id = serializers.UUIDField()
+    pairing_result = PairingResultSerializer()
+
+
+class CreatedJobResponseSerializer(serializers.Serializer):
+    """
+    Response of bussiness job created successfully
+    """
+    data = CreatedJobDataSerializer()
+    message = serializers.CharField()

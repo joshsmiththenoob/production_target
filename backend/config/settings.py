@@ -22,8 +22,10 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "rest_framework",
+    "drf_spectacular",
     "apps.health",
-    "apps.volume_price_merge"
+    "apps.volume_price_merge",
+    "apps.jobs"
 ]
 
 MIDDLEWARE = [
@@ -32,7 +34,21 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-TEMPLATES = []
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
@@ -48,6 +64,10 @@ DATABASES = {
     }
 }
 
+
+MEDIA_ROOT = "/app/media"
+
+
 LANGUAGE_CODE = "zh-hant"
 TIME_ZONE = "Asia/Taipei"
 USE_I18N = True
@@ -56,5 +76,19 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    # New Swagger API docs 3.0 for drf_spectacular
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+
+# Setting of Swagger API docs
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Production Target API",
+    "DESCRIPTION": "年度生產目標 API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+
+    # FileField 的 request/response schema 分開
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 

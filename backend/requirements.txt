@@ -2,4 +2,5 @@ Django==5.2.17
 djangorestframework==3.17.2
 psycopg[binary]==3.3.4
 openpyxl==3.1.5
+drf-spectacular==0.30.0
 

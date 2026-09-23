@@ -9,7 +9,7 @@ def merge_input_path(instance, filename):
     suffix = Path(filename).suffix.lower()
     return (
         f"jobs/{instance.merge_job_id}/inputs/"
-        f"{instance.role}/{uuid.uuid4().hex}{suffix}"
+        f"{instance.property_type}/{uuid.uuid4().hex}{suffix}"
     )
 
 
@@ -25,19 +25,25 @@ class VolumePriceMergeJob(models.Model):
 
 class MergeInputFile(models.Model):
     """
+    The origin input files will lead to 1 result of merge job
     """
      # Define custom choices for specfic column
-    class Role(models.TextChoices):
+    class PropertyType(models.TextChoices):
         PRODUCTION = ("production", "產量及產值")
         AREA = ("area", "種植及收穫面積")
 
     merge_job = models.ForeignKey(VolumePriceMergeJob, on_delete=models.CASCADE, related_name="input_files",)
 
     # Set custom choices to particular column
-    role = models.CharField(max_length=16, choices=Role.choices)
+    property_type = models.CharField(max_length=16, choices=PropertyType.choices)
     major_category = models.CharField(max_length=100)
 
+    # File informations 
+    # Original file_name
     original_name = models.CharField(max_length=255)
+    # upload_to arugument: save the file on relative path created by callable function.
+    # Note: The file will be saved in MEDIA_ROOT/relativ_path thanks to functionality of models.FileField
+    # then only save string path to table in PostgreSQL
     file = models.FileField(upload_to=merge_input_path, max_length=500,)
     size_bytes = models.PositiveBigIntegerField()
 
@@ -45,7 +51,7 @@ class MergeInputFile(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["merge_job", "role", "major_category"],
+                fields=["merge_job", "property_type", "major_category"],
                 name="uq_merge_file_role_category",
             )
         ]

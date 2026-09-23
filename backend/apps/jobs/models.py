@@ -11,10 +11,16 @@ class Job(models.Model):
 
     # Define custom choices for specfic column
     class Kind(models.TextChoices):
+        """
+        Variety kinds of businesses
+        """
         VOLUME_PRICE_MERGE = ("volume_price_merge", "量價/種植面積整併",)
         TABLE_COMPARE = ("table_compare", "表格比對",)
 
     class Status(models.TextChoices):
+        """
+        Status of job
+        """
         PENDING = ("pending", "等待執行")
         RUNNING = ("running", "執行中")
         SUCCEEDED = ("succeeded", "執行成功")

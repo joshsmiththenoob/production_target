@@ -44,6 +44,8 @@ services:
       start_period: 10s
     volumes:
       - ./backend:/app
+      # - /mnt/d/production_target_media:/app/media
+      - ./media:/app/media
 
   frontend:
     build:
