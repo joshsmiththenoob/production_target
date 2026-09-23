@@ -16,6 +16,48 @@ function renderRoute(path = '/') {
   )
 }
 
+function jsonResponse(status: number, payload: unknown): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: vi.fn().mockResolvedValue(payload),
+  } as unknown as Response
+}
+
+function makeFile(name: string): File {
+  return new File(['anonymous workbook'], name, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+}
+
+function selectMergeFiles(productionFile: File, areaFile: File) {
+  fireEvent.change(screen.getByLabelText('選擇產量及產值檔案'), {
+    target: { files: [productionFile] },
+  })
+  fireEvent.change(screen.getByLabelText('選擇種植及收穫面積檔案'), {
+    target: { files: [areaFile] },
+  })
+}
+
+const successfulPairingPayload = {
+  data: {
+    public_id: '04aa5e62-6b20-4cbd-8555-9a0cc83d121d',
+    pairing_result: {
+      is_valid: true,
+      pairs: [
+        {
+          major_category: '果品',
+          production_files: ['果品產量及產值.xlsx'],
+          area_files: ['果品種植及收穫面積.xlsx'],
+          complete: true,
+        },
+      ],
+      errors: [],
+    },
+  },
+  message: 'Pairing Sucessfully! And Job created.',
+}
+
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(() => new Promise(() => undefined)))
 })
@@ -86,7 +128,7 @@ describe('application routes', () => {
     expect(screen.getByRole('heading', { level: 1, name: '今天要處理哪一項工作？' })).toBeInTheDocument()
   })
 
-  it('renders the volume-price merge idle layout without fake processing or results', () => {
+  it('renders enabled file selection without fake processing or results', () => {
     renderRoute('/volume-price-merge')
 
     expect(screen.getByRole('heading', { level: 1, name: '生產量值整併' })).toBeInTheDocument()
@@ -96,24 +138,160 @@ describe('application routes', () => {
     expect(screen.getByRole('group', { name: '種植及收穫面積 Excel' })).toBeInTheDocument()
 
     const productionFiles = screen.getByLabelText('選擇產量及產值檔案')
-    expect(productionFiles).toBeDisabled()
+    expect(productionFiles).toBeEnabled()
     expect(productionFiles).toHaveAttribute('multiple')
     expect(productionFiles).toHaveAccessibleDescription(/多份 \.xlsx/)
 
     const areaFiles = screen.getByLabelText('選擇種植及收穫面積檔案')
-    expect(areaFiles).toBeDisabled()
+    expect(areaFiles).toBeEnabled()
     expect(areaFiles).toHaveAttribute('multiple')
     expect(areaFiles).toHaveAccessibleDescription(/多份 \.xlsx/)
 
     expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeDisabled()
     expect(
-      screen.getByText('此版本先建立工作頁版面；檔案選擇與配對功能將於後續 Phase 啟用。'),
+      screen.getByText('兩類檔案都選好後即可檢查；檢查期間請勿重複送出。'),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '檔案準備說明' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '功能建置中' })).not.toBeInTheDocument()
     expect(screen.queryByText('處理中')).not.toBeInTheDocument()
     expect(screen.queryByText('配對成功')).not.toBeInTheDocument()
     expect(screen.queryByText('下載結果')).not.toBeInTheDocument()
+  })
+
+  it('uploads both file groups once and shows the successful pairing in step 2', async () => {
+    let resolveRequest!: (response: Response) => void
+    vi.mocked(fetch).mockImplementation(
+      () => new Promise((resolve) => { resolveRequest = resolve }),
+    )
+    renderRoute('/volume-price-merge')
+    const productionFile = makeFile('果品產量及產值.xlsx')
+    const areaFile = makeFile('果品種植及收穫面積.xlsx')
+    selectMergeFiles(productionFile, areaFile)
+
+    expect(screen.getByText(productionFile.name)).toBeInTheDocument()
+    expect(screen.getByText(areaFile.name)).toBeInTheDocument()
+    const submitButton = screen.getByRole('button', { name: '檢查檔案配對' })
+    expect(submitButton).toBeEnabled()
+
+    fireEvent.click(submitButton)
+    expect(screen.getByRole('button', { name: '正在檢查檔案配對…' })).toBeDisabled()
+    fireEvent.click(submitButton)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/price-volume-merge/jobs/',
+      expect.objectContaining({ method: 'POST' }),
+    )
+
+    const requestOptions = vi.mocked(fetch).mock.calls[0][1]
+    const requestBody = requestOptions?.body as FormData
+    expect(requestOptions?.headers).toBeUndefined()
+    expect(requestBody.getAll('production_files')).toEqual([productionFile])
+    expect(requestBody.getAll('area_files')).toEqual([areaFile])
+
+    resolveRequest(jsonResponse(201, successfulPairingPayload))
+
+    expect(await screen.findByRole('heading', { name: '2. 檢查配對' })).toBeInTheDocument()
+    expect(screen.getByText('檔案配對完整')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: '果品' })).toBeInTheDocument()
+    expect(screen.getByText('配對完整')).toBeInTheDocument()
+    expect(screen.getByText(/04aa5e62-6b20-4cbd-8555-9a0cc83d121d/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '返回選擇檔案' }))
+    expect(screen.getByRole('heading', { name: '1. 選擇檔案' })).toBeInTheDocument()
+    expect(screen.getByText(productionFile.name)).toBeInTheDocument()
+    expect(screen.getByText(areaFile.name)).toBeInTheDocument()
+  })
+
+  it('shows an incomplete pairing in step 2 and keeps files when returning to fix it', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(400, {
+      code: 'invalid_pairing',
+      message: 'Pairing is incomplete.',
+      field_errors: {
+        is_valid: false,
+        pairs: [
+          {
+            major_category: '果品',
+            production_files: ['果品產量及產值.xlsx'],
+            area_files: [],
+            complete: false,
+          },
+          {
+            major_category: '蔬菜',
+            production_files: [],
+            area_files: ['蔬菜種植及收穫面積.xlsx'],
+            complete: false,
+          },
+        ],
+        errors: ['「果品」缺少種植及收穫面積檔案。', '「蔬菜」缺少產量及產值檔案。'],
+      },
+    }))
+    renderRoute('/volume-price-merge')
+    const productionFile = makeFile('果品產量及產值.xlsx')
+    const areaFile = makeFile('蔬菜種植及收穫面積.xlsx')
+    selectMergeFiles(productionFile, areaFile)
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+
+    expect(await screen.findByText('檔案配對尚未完整')).toBeInTheDocument()
+    expect(screen.getAllByText('配對不完整')).toHaveLength(2)
+    expect(screen.getAllByText('缺少檔案')).toHaveLength(2)
+    expect(screen.getByText('「果品」缺少種植及收穫面積檔案。')).toBeInTheDocument()
+    expect(screen.queryByText(/工作編號/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '返回選擇檔案' }))
+    expect(screen.getByText(productionFile.name)).toBeInTheDocument()
+    expect(screen.getByText(areaFile.name)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeEnabled()
+  })
+
+  it.each([
+    [
+      'invalid_upload',
+      '檔案未通過上傳檢查。請確認兩類都已選擇，且檔案格式為 .xlsx。',
+    ],
+    [
+      'invalid_workbook',
+      'Excel 檔案無法讀取，或檔名與工作表 A1 標題不一致。請檢查後重試。',
+    ],
+  ])('keeps %s errors in step 1', async (code, expectedMessage) => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(400, {
+      code,
+      message: 'Traceback: internal details must stay hidden',
+      field_errors: {},
+    }))
+    renderRoute('/volume-price-merge')
+    selectMergeFiles(
+      makeFile('果品產量及產值.xlsx'),
+      makeFile('果品種植及收穫面積.xlsx'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage)
+    expect(screen.getByRole('heading', { name: '1. 選擇檔案' })).toBeInTheDocument()
+    expect(screen.queryByText(/Traceback/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeEnabled()
+  })
+
+  it('allows retrying a network error without exposing its internal message', async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error('Traceback: C:\\private\\server-path'))
+      .mockResolvedValueOnce(jsonResponse(201, successfulPairingPayload))
+    renderRoute('/volume-price-merge')
+    selectMergeFiles(
+      makeFile('果品產量及產值.xlsx'),
+      makeFile('果品種植及收穫面積.xlsx'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('目前無法檢查檔案配對，請稍後重試。')
+    expect(alert).not.toHaveTextContent('Traceback')
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    expect(await screen.findByText('檔案配對完整')).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it.each([

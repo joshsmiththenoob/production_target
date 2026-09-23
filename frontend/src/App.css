@@ -502,6 +502,15 @@ button:hover {
   font-weight: 650;
 }
 
+.workflow-steps li[aria-current='step'] {
+  color: var(--color-text);
+}
+
+.workflow-steps li[aria-current='step'] span {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
 .workflow-steps span {
   display: inline-grid;
   width: 1.75rem;
@@ -599,6 +608,149 @@ button:hover {
 .file-input-group input:disabled::file-selector-button {
   cursor: not-allowed;
   opacity: 1;
+}
+
+.selected-files {
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-5);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.selected-files--empty {
+  padding-left: 0;
+  color: var(--color-text-muted);
+}
+
+.form-error,
+.pairing-summary {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--color-error);
+  border-left-width: 0.35rem;
+  background: var(--color-error-bg);
+}
+
+.form-error strong,
+.pairing-summary--error strong {
+  color: var(--color-error);
+}
+
+.form-error p,
+.pairing-summary p {
+  margin: var(--space-1) 0 0;
+}
+
+.pairing-summary--success {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.pairing-summary--success strong {
+  color: var(--color-success);
+}
+
+.pairing-job-id {
+  margin: var(--space-4) 0 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.pairing-job-id code {
+  color: var(--color-text);
+}
+
+.pairing-errors {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-5);
+  color: var(--color-error);
+}
+
+.pairing-list {
+  display: grid;
+  gap: var(--space-4);
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pair-card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pair-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pair-card__heading h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.1rem;
+}
+
+.pair-card__status {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.pair-card__status--complete {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.pair-card__status--incomplete {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.pair-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+}
+
+.pair-card dl > div {
+  min-width: 0;
+}
+
+.pair-card dt {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.pair-card dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.pair-card dd ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.pair-card__missing {
+  color: var(--color-error);
+  font-weight: 700;
+}
+
+.button--secondary,
+.button--secondary:hover {
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.button--secondary:hover {
+  background: var(--color-outline-hover);
 }
 
 .work-action-bar {
@@ -735,6 +887,10 @@ button:hover {
 
   .workflow-steps,
   .file-input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pair-card dl {
     grid-template-columns: 1fr;
   }
 
