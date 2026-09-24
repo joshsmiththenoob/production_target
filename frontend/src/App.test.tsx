@@ -102,6 +102,7 @@ describe('application routes', () => {
     )
     expect(plannedCard.querySelector('.feature-media--table-compare')).toContainElement(mediaImages[1])
     for (const card of [availableCard, plannedCard]) {
+      expect(within(card).queryByRole('button')).not.toBeInTheDocument()
       expect(card.children[0]).toHaveClass('feature-media')
       expect(card.children[1]).toHaveClass('feature-card__content')
       expect(card.querySelector('.feature-media > .feature-status')).toBeInTheDocument()
@@ -148,13 +149,21 @@ describe('application routes', () => {
 
     const productionFiles = screen.getByLabelText('選擇產量及產值檔案')
     expect(productionFiles).toBeEnabled()
+    expect(productionFiles).toHaveClass('motion-file-picker__input')
+    expect(productionFiles).toHaveAttribute('aria-labelledby', 'production-files-label')
     expect(productionFiles).toHaveAttribute('multiple')
     expect(productionFiles).toHaveAccessibleDescription(/多份 \.xlsx/)
+    expect(document.getElementById('production-files-label')).toHaveClass('motion-file-picker__label')
+    expect(document.getElementById('production-files-label')?.parentElement).toHaveClass('motion-file-picker')
 
     const areaFiles = screen.getByLabelText('選擇種植及收穫面積檔案')
     expect(areaFiles).toBeEnabled()
+    expect(areaFiles).toHaveClass('motion-file-picker__input')
+    expect(areaFiles).toHaveAttribute('aria-labelledby', 'area-files-label')
     expect(areaFiles).toHaveAttribute('multiple')
     expect(areaFiles).toHaveAccessibleDescription(/多份 \.xlsx/)
+    expect(document.getElementById('area-files-label')).toHaveClass('motion-file-picker__label')
+    expect(document.getElementById('area-files-label')?.parentElement).toHaveClass('motion-file-picker')
 
     expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeDisabled()
     expect(

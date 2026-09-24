@@ -50,8 +50,9 @@
   --focus-ring-width: 3px;
   --focus-keyline-width: 2px;
 
-  --content-wide: 80rem;
+  --content-wide: 100rem;
   --content-narrow: 56rem;
+  --content-gutter: clamp(var(--space-4), 2.78vw, 2.5rem);
 
   color: var(--color-text);
   background: var(--color-background);

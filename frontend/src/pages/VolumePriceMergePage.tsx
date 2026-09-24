@@ -1,4 +1,12 @@
-import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  type ChangeEvent,
+  type ComponentPropsWithoutRef,
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router'
 
@@ -22,6 +30,93 @@ const reducedMotionVariants = {
   enter: { x: 0, opacity: 1 },
   center: { x: 0, opacity: 1 },
   exit: { x: 0, opacity: 1 },
+}
+
+const buttonContentVariants = {
+  rest: { x: 0 },
+  hover: { x: 4 },
+  pressed: { x: 2 },
+}
+
+const filePickerVariants = {
+  rest: { scale: 1 },
+  hover: { scale: 1.018 },
+}
+
+function WorkActionButton({
+  children,
+  disabled,
+  reducedMotion,
+  ...buttonProps
+}: ComponentPropsWithoutRef<typeof motion.button> & { reducedMotion: boolean }) {
+  return (
+    <motion.button
+      {...buttonProps}
+      disabled={disabled}
+      initial={false}
+      animate="rest"
+      whileHover={disabled || reducedMotion ? 'rest' : 'hover'}
+      whileTap={disabled || reducedMotion ? 'rest' : 'pressed'}
+    >
+      <motion.span
+        className="work-action-button__content"
+        variants={buttonContentVariants}
+        transition={{ duration: reducedMotion ? 0 : 0.15, ease: 'easeOut' }}
+      >
+        {children}
+      </motion.span>
+    </motion.button>
+  )
+}
+
+function MotionFilePicker({
+  id,
+  label,
+  helpId,
+  disabled,
+  reducedMotion,
+  onChange,
+}: {
+  id: string
+  label: string
+  helpId: string
+  disabled: boolean
+  reducedMotion: boolean
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void
+}) {
+  const labelId = `${id}-label`
+
+  return (
+    <>
+      <input
+        className="motion-file-picker__input"
+        id={id}
+        type="file"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        multiple
+        disabled={disabled}
+        aria-labelledby={labelId}
+        aria-describedby={helpId}
+        onChange={onChange}
+      />
+      <motion.div
+        className="motion-file-picker"
+        data-disabled={disabled ? 'true' : undefined}
+        variants={filePickerVariants}
+        initial={false}
+        animate="rest"
+        whileHover={disabled || reducedMotion ? 'rest' : 'hover'}
+        transition={reducedMotion
+          ? { duration: 0 }
+          : { type: 'spring', stiffness: 420, damping: 28, mass: 0.55 }}
+      >
+        <label className="motion-file-picker__label" id={labelId} htmlFor={id}>
+          <span className="motion-file-picker__icon" aria-hidden="true" />
+          <span>{label}</span>
+        </label>
+      </motion.div>
+    </>
+  )
 }
 
 function WorkflowPanel({
@@ -212,13 +307,15 @@ export default function VolumePriceMergePage() {
           <span className="workflow-steps__number" aria-hidden="true">{step === 'select' ? '1' : '✓'}</span>
           <span>選擇檔案</span>
           <span className="workflow-steps__status">{step === 'select' ? '目前' : '已完成'}</span>
+          <span className="workflow-steps__connector" aria-hidden="true" />
         </li>
         <li data-state={step === 'review' ? 'active' : 'locked'} aria-current={step === 'review' ? 'step' : undefined}>
           <span className="workflow-steps__number" aria-hidden="true">2</span>
           <span>檢查配對</span>
           <span className="workflow-steps__status">{step === 'review' ? '目前' : '未開放'}</span>
+          <span className="workflow-steps__connector" aria-hidden="true" />
         </li>
-        <li data-state="locked"><span className="workflow-steps__number" aria-hidden="true">3</span><span>開始整併</span><span className="workflow-steps__status">未開放</span></li>
+        <li data-state="locked"><span className="workflow-steps__number" aria-hidden="true">3</span><span>開始整併</span><span className="workflow-steps__status">未開放</span><span className="workflow-steps__connector" aria-hidden="true" /></li>
         <li data-state="locked"><span className="workflow-steps__number" aria-hidden="true">4</span><span>查詢與下載</span><span className="workflow-steps__status">未開放</span></li>
       </ol>
 
@@ -236,17 +333,15 @@ export default function VolumePriceMergePage() {
                   <div className="file-input-grid">
                     <fieldset className="file-input-group">
                       <legend>產量及產值 Excel</legend>
-                      <p id="production-files-help">
+                      <p className="file-input-group__description" id="production-files-help">
                         可選擇多份 .xlsx，用於提供各大項、年度與作物的產量及產值資料。
                       </p>
-                      <label htmlFor="production-files">選擇產量及產值檔案</label>
-                      <input
+                      <MotionFilePicker
                         id="production-files"
-                        type="file"
-                        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        multiple
+                        label="選擇檔案"
+                        helpId="production-files-help"
                         disabled={isSubmitting || isTransitioning}
-                        aria-describedby="production-files-help"
+                        reducedMotion={reducedMotion}
                         onChange={handleProductionFiles}
                       />
                       {productionFiles.length > 0 && <p className="selected-files__hint">已選檔案保留在下方；重新選取會替換此類檔案。</p>}
@@ -255,17 +350,15 @@ export default function VolumePriceMergePage() {
 
                     <fieldset className="file-input-group">
                       <legend>種植及收穫面積 Excel</legend>
-                      <p id="area-files-help">
+                      <p className="file-input-group__description" id="area-files-help">
                         可選擇多份 .xlsx，用於提供對應大項、年度與作物的種植及收穫面積資料。
                       </p>
-                      <label htmlFor="area-files">選擇種植及收穫面積檔案</label>
-                      <input
+                      <MotionFilePicker
                         id="area-files"
-                        type="file"
-                        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        multiple
+                        label="選擇檔案"
+                        helpId="area-files-help"
                         disabled={isSubmitting || isTransitioning}
-                        aria-describedby="area-files-help"
+                        reducedMotion={reducedMotion}
                         onChange={handleAreaFiles}
                       />
                       {areaFiles.length > 0 && <p className="selected-files__hint">已選檔案保留在下方；重新選取會替換此類檔案。</p>}
@@ -282,9 +375,9 @@ export default function VolumePriceMergePage() {
                   )}
 
                   <div className="work-action-bar">
-                    <button type="submit" disabled={!canSubmit}>
+                    <WorkActionButton type="submit" disabled={!canSubmit} reducedMotion={reducedMotion}>
                       {isSubmitting ? '正在檢查檔案配對…' : '檢查檔案配對'}
-                    </button>
+                    </WorkActionButton>
                     <p>
                       兩類檔案都選好後即可檢查；檢查期間請勿重複送出。
                     </p>
@@ -322,9 +415,15 @@ export default function VolumePriceMergePage() {
                   </ul>
 
                   <div className="work-action-bar">
-                    <button type="button" className="button--secondary" disabled={isTransitioning} onClick={() => changeStep('select')}>
+                    <WorkActionButton
+                      type="button"
+                      className="button--secondary"
+                      disabled={isTransitioning}
+                      reducedMotion={reducedMotion}
+                      onClick={() => changeStep('select')}
+                    >
                       返回選擇檔案
-                    </button>
+                    </WorkActionButton>
                     <p>返回後會保留目前選取的檔案，方便直接調整。</p>
                   </div>
                 </section>

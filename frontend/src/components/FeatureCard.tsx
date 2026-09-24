@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router'
 
 type FeatureCardStatus = 'available' | 'planned'
@@ -28,6 +29,20 @@ const statusLabels: Record<FeatureCardStatus, string> = {
   planned: '規劃中',
 }
 
+const MotionLink = motion.create(Link)
+
+const cardVariants = {
+  rest: { y: 0 },
+  hover: { y: -2 },
+  pressed: { y: 1 },
+}
+
+const arrowVariants = {
+  rest: { x: 0 },
+  hover: { x: 4 },
+  pressed: { x: 2 },
+}
+
 function FeatureMedia({ variant, imageSrc, imageAlt = '', status }: FeatureMediaProps) {
   return (
     <div className={`feature-media feature-media--${variant}`}>
@@ -50,11 +65,23 @@ export default function FeatureCard({
   imageSrc,
   imageAlt = '',
 }: FeatureCardProps) {
+  const reducedMotion = useReducedMotion() === true
+  const interactionTransition = {
+    duration: reducedMotion ? 0 : 0.15,
+    ease: 'easeOut' as const,
+  }
+
   return (
-    <Link
+    <MotionLink
       className={`feature-card feature-card--${status}`}
       to={to}
       aria-label={accessibleLabel}
+      variants={cardVariants}
+      initial={false}
+      animate="rest"
+      whileHover={reducedMotion ? 'rest' : 'hover'}
+      whileTap={reducedMotion ? 'rest' : 'pressed'}
+      transition={interactionTransition}
     >
       <FeatureMedia
         variant={mediaVariant}
@@ -65,12 +92,17 @@ export default function FeatureCard({
       <div className="feature-card__content">
         <div className="feature-card__title-row">
           <h2>{title}</h2>
-          <span className="feature-card__arrow" aria-hidden="true">
+          <motion.span
+            className="feature-card__arrow"
+            aria-hidden="true"
+            variants={arrowVariants}
+            transition={interactionTransition}
+          >
             →
-          </span>
+          </motion.span>
         </div>
         <p className="feature-card__summary">{summary}</p>
       </div>
-    </Link>
+    </MotionLink>
   )
 }
