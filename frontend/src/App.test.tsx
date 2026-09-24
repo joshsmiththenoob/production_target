@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -134,6 +134,15 @@ describe('application routes', () => {
     expect(screen.getByRole('heading', { level: 1, name: '生產量值整併' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '← 返回工作入口' })).toHaveAttribute('href', '/')
     expect(screen.getByRole('heading', { level: 2, name: '1. 選擇檔案' })).toBeInTheDocument()
+    const steps = within(screen.getByRole('list', { name: '果品整併工作流程' })).getAllByRole('listitem')
+    expect(steps).toHaveLength(4)
+    expect(steps[0]).toHaveAttribute('aria-current', 'step')
+    expect(steps[0]).toHaveTextContent('目前')
+    for (const lockedStep of steps.slice(1)) {
+      expect(lockedStep).toHaveTextContent('未開放')
+      expect(within(lockedStep).queryByRole('button')).not.toBeInTheDocument()
+      expect(within(lockedStep).queryByRole('link')).not.toBeInTheDocument()
+    }
     expect(screen.getByRole('group', { name: '產量及產值 Excel' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: '種植及收穫面積 Excel' })).toBeInTheDocument()
 
@@ -191,15 +200,34 @@ describe('application routes', () => {
     resolveRequest(jsonResponse(201, successfulPairingPayload))
 
     expect(await screen.findByRole('heading', { name: '2. 檢查配對' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '檢查檔案配對' })).not.toBeInTheDocument()
+    const steps = within(screen.getByRole('list', { name: '果品整併工作流程' })).getAllByRole('listitem')
+    expect(steps[0]).toHaveTextContent('已完成')
+    expect(steps[1]).toHaveAttribute('aria-current', 'step')
+    expect(steps[1]).toHaveTextContent('目前')
+    expect(steps[2]).toHaveTextContent('未開放')
+    expect(steps[3]).toHaveTextContent('未開放')
+    await waitFor(() => expect(screen.getByRole('heading', { name: '2. 檢查配對' })).toHaveFocus())
     expect(screen.getByText('檔案配對完整')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: '果品' })).toBeInTheDocument()
     expect(screen.getByText('配對完整')).toBeInTheDocument()
     expect(screen.getByText(/04aa5e62-6b20-4cbd-8555-9a0cc83d121d/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '返回選擇檔案' }))
-    expect(screen.getByRole('heading', { name: '1. 選擇檔案' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '1. 選擇檔案' })).toBeInTheDocument()
     expect(screen.getByText(productionFile.name)).toBeInTheDocument()
     expect(screen.getByText(areaFile.name)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { name: '1. 選擇檔案' })).toHaveFocus())
+    expect((screen.getByLabelText('選擇產量及產值檔案') as HTMLInputElement).files).toHaveLength(0)
+    expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeEnabled()
+
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(201, successfulPairingPayload))
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    await screen.findByRole('heading', { name: '2. 檢查配對' })
+    const secondBody = vi.mocked(fetch).mock.calls[1][1]?.body as FormData
+    expect(secondBody.getAll('production_files')).toEqual([productionFile])
+    expect(secondBody.getAll('area_files')).toEqual([areaFile])
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('shows an incomplete pairing in step 2 and keeps files when returning to fix it', async () => {
@@ -238,10 +266,54 @@ describe('application routes', () => {
     expect(screen.getByText('「果品」缺少種植及收穫面積檔案。')).toBeInTheDocument()
     expect(screen.queryByText(/工作編號/)).not.toBeInTheDocument()
 
+    await waitFor(() => expect(screen.getByRole('button', { name: '返回選擇檔案' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: '返回選擇檔案' }))
+    expect(await screen.findByRole('heading', { name: '1. 選擇檔案' })).toBeInTheDocument()
     expect(screen.getByText(productionFile.name)).toBeInTheDocument()
     expect(screen.getByText(areaFile.name)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeEnabled()
+    await waitFor(() => expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeEnabled())
+  })
+
+  it('replaces a selected group after returning and does not reuse the old job result', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(201, successfulPairingPayload))
+      .mockResolvedValueOnce(jsonResponse(400, {
+        code: 'invalid_pairing',
+        message: 'Pairing is incomplete.',
+        field_errors: {
+          is_valid: false,
+          pairs: [
+            { major_category: '果品', production_files: ['果品產量及產值.xlsx'], area_files: [], complete: false },
+            { major_category: '蔬菜', production_files: [], area_files: ['蔬菜種植及收穫面積.xlsx'], complete: false },
+          ],
+          errors: ['「果品」缺少種植及收穫面積檔案。'],
+        },
+      }))
+    renderRoute('/volume-price-merge')
+    const productionFile = makeFile('果品產量及產值.xlsx')
+    const originalAreaFile = makeFile('果品種植及收穫面積.xlsx')
+    const replacementAreaFile = makeFile('蔬菜種植及收穫面積.xlsx')
+    selectMergeFiles(productionFile, originalAreaFile)
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    expect(await screen.findByText(/04aa5e62-6b20-4cbd-8555-9a0cc83d121d/)).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '返回選擇檔案' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: '返回選擇檔案' }))
+    const areaInput = await screen.findByLabelText('選擇種植及收穫面積檔案')
+    await waitFor(() => expect(areaInput).toBeEnabled())
+    fireEvent.change(areaInput, { target: { files: [replacementAreaFile] } })
+
+    expect(screen.getByText(replacementAreaFile.name)).toBeInTheDocument()
+    expect(screen.queryByText(originalAreaFile.name)).not.toBeInTheDocument()
+    expect(screen.queryByText(/04aa5e62-6b20-4cbd-8555-9a0cc83d121d/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    expect(await screen.findByText('檔案配對尚未完整')).toBeInTheDocument()
+    expect(screen.queryByText(/工作編號/)).not.toBeInTheDocument()
+    const secondBody = vi.mocked(fetch).mock.calls[1][1]?.body as FormData
+    expect(secondBody.getAll('production_files')).toEqual([productionFile])
+    expect(secondBody.getAll('area_files')).toEqual([replacementAreaFile])
   })
 
   it.each([

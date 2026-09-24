@@ -502,16 +502,27 @@ button:hover {
   font-weight: 650;
 }
 
-.workflow-steps li[aria-current='step'] {
+.workflow-steps li[data-state='active'] {
   color: var(--color-text);
 }
 
-.workflow-steps li[aria-current='step'] span {
+.workflow-steps li[data-state='active'] .workflow-steps__number {
   background: var(--color-primary);
   color: var(--color-text-inverse);
 }
 
-.workflow-steps span {
+.workflow-steps li[data-state='complete'] .workflow-steps__number {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.workflow-steps li[data-state='locked'] .workflow-steps__number {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+
+.workflow-steps__number {
   display: inline-grid;
   width: 1.75rem;
   height: 1.75rem;
@@ -523,11 +534,44 @@ button:hover {
   font-weight: 700;
 }
 
+.workflow-steps__status {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.workflow-steps li[data-state='active'] .workflow-steps__status {
+  border-color: var(--color-primary);
+  background: var(--color-outline-hover);
+  color: var(--color-primary);
+}
+
+.workflow-steps li[data-state='complete'] .workflow-steps__status {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
 .volume-price-layout {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(16rem, 1fr);
   align-items: start;
   gap: var(--space-6);
+}
+
+.workflow-panel-slot {
+  min-width: 0;
+}
+
+.workflow-panel h2:focus {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 var(--focus-keyline-width) var(--color-focus-text);
 }
 
 .work-surface {
@@ -620,6 +664,11 @@ button:hover {
 .selected-files--empty {
   padding-left: 0;
   color: var(--color-text-muted);
+}
+
+.file-input-group .selected-files__hint {
+  margin: var(--space-3) 0 0;
+  font-size: 0.9rem;
 }
 
 .form-error,
@@ -896,6 +945,10 @@ button:hover {
 
   .workflow-steps {
     gap: var(--space-2);
+  }
+
+  .workflow-steps li {
+    gap: var(--space-3);
   }
 
   .work-surface {
