@@ -104,6 +104,8 @@ export async function createPairingPreview(
   productionFiles.forEach((file) => formData.append('production_files', file))
   areaFiles.forEach((file) => formData.append('area_files', file))
 
+
+  // Fetch(call) backend API
   const response = await fetch('/api/v1/price-volume-merge/jobs/', {
     method: 'POST',
     body: formData,
