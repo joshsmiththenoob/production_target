@@ -1,6 +1,7 @@
 """
 In charge of reading and checking excel workbook if it's in specification or not.
 """
+from typing import Any
 from django.core.files.uploadedfile import UploadedFile
 from openpyxl import load_workbook
 
@@ -11,7 +12,7 @@ class WorkbookReader:
         pass
 
     def read_title_text(self, uploaded_file: UploadedFile) -> str:
-        # seek(0)
+        # seek(0)  
         uploaded_file.seek(0)
         workbook = None
 
@@ -42,3 +43,29 @@ class WorkbookReader:
                 workbook.close()
 
             uploaded_file.seek(0)
+
+
+    def read_rows(self, file) -> list[list[Any]]:
+        """
+        Open Excel workbook and Read all rows
+        """
+        try:
+            workbook = load_workbook(filename= file.file, read_only= True, data_only= True)
+            # CHeck if there's any worksheets or NOT
+            if (not workbook.worksheets):
+                raise ValueError (f"檔案「{file.name}」沒有工作表。")
+
+            # Get the first worksheet's all rows
+            rows_iterator = workbook.worksheets[0].iter_rows(values_only=True)       
+            return [row for row in rows_iterator]
+
+
+        except Exception as e:
+            raise ValueError( f"無法讀取 Excel 檔案「{file.name}」, 原因為 {e}")
+
+        # need to close workbook if workbook got any worksheets or not
+        finally:
+            if (workbook is not None):
+                workbook.close()
+
+        

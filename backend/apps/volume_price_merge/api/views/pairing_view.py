@@ -57,8 +57,7 @@ class PairingView(APIView):
             if (result["pairing_result"]["is_valid"]):
                 # if pairing result we build is valid : need to create the related business job to summary the current work
                 merge_job_service = MergeJobCreationService()
-                job = merge_job_service.create(result["pairing_result"], 
-                                        file_infos= result["uploaded_file_infos"])
+                job = merge_job_service.create(result["pairing_result"], file_infos= result["uploaded_file_infos"])
 
                 # Wrap result with job's public_id
                 response = ResponseFormatter.success_response(
@@ -68,8 +67,7 @@ class PairingView(APIView):
                     },
                     message = "Pairing Sucessfully! And Job created."
                 )
-                return Response(data = response,
-                                status = status.HTTP_201_CREATED)
+                return Response(data = response, status = status.HTTP_201_CREATED)
 
             else:
                 response = ResponseFormatter.error_response(
@@ -77,8 +75,7 @@ class PairingView(APIView):
                     message= "Something goes wrong! Please check the uploaded file and get both area/production information in every category!",
                     field_errors= result["pairing_result"]
                 )
-                return Response(data= response,
-                                status = status.HTTP_400_BAD_REQUEST)
+                return Response(data= response, status = status.HTTP_400_BAD_REQUEST)
         except ValueError:
             response = ResponseFormatter.error_response(
                 code="invalid_workbook",
@@ -86,9 +83,7 @@ class PairingView(APIView):
                 field_errors={},
             )
 
-            return Response(
-                data=response,
-                status=status.HTTP_400_BAD_REQUEST,
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception:
             response = ResponseFormatter.error_response(
@@ -97,7 +92,4 @@ class PairingView(APIView):
                 field_errors={},
             )
 
-            return  Response(
-                data=response,
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return  Response(data=response, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
