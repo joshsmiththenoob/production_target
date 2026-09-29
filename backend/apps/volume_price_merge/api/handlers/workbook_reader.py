@@ -49,6 +49,7 @@ class WorkbookReader:
         """
         Open Excel workbook and Read all rows
         """
+        workbook = None
         try:
             workbook = load_workbook(filename= file.file, read_only= True, data_only= True)
             # CHeck if there's any worksheets or NOT
@@ -57,6 +58,9 @@ class WorkbookReader:
 
             # Get the first worksheet's all rows
             rows_iterator = workbook.worksheets[0].iter_rows(values_only=True)       
+            
+            a = [row for row in rows_iterator]
+            print(a)
             return [row for row in rows_iterator]
 
 
