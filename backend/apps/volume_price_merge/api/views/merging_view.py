@@ -29,7 +29,8 @@ class MergingView(APIView):
         
         try:
             merging_service = MergingService()
-            merging_service.run(public_id)
+            result = merging_service.run(public_id)
+            print(result)
         except Exception as e:
             print(e)
         

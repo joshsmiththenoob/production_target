@@ -149,8 +149,46 @@ class ExcelHandler:
 
 
     def _collapse_duplicate_values(self, values: list[Any]) -> Any:
-        if not self.__RE_handler.is_blank(values):
+        if not values:
             return None
         if len(values) == 1:
             return values[0]
-        return " / ".join("" if value else str(value) for value in values)
+        return " / ".join( "" if self.__RE_handler.is_blank(value) else str(value) for value in values)
+
+
+    def build_result_data(self, column_order: list[dict[str, Any]], merged_rows: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Build results from camelCase to snake_case
+        """
+        
+        columns = [{
+            "key": column["key"],
+            "major_category": column["majorCategory"],
+            "year": column["year"],
+            "crop": column["crop"]
+        } for column in column_order]
+
+
+        rows = [
+            {
+            "metric": row["metric"],
+            "property_type": row["sourceType"],
+            "major_category": row["majorCategory"],
+            "values": row["values"],
+        }for row in merged_rows
+        ]
+
+        # Extract deduplicated product(crop) name from columns
+        # Note: dict.formkeys() help us to deduplicate crop and contain the origin order.
+        available_crops = [dict.fromkeys(column["crop"] for column in columns) ]
+
+        return {
+            "schema_version": 1,
+            "columns": columns,
+            "rows": rows,
+            "available_crops": available_crops,
+            "summary": {
+                "column_count": len(columns),
+                "row_count": len(rows),
+            }
+        }

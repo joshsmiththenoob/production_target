@@ -45,27 +45,26 @@ class WorkbookReader:
             uploaded_file.seek(0)
 
 
-    def read_rows(self, file) -> list[list[Any]]:
+    def read_rows(self, file: UploadedFile, file_name: str) -> list[list[Any]]:
         """
         Open Excel workbook and Read all rows
         """
+        file.seek(0)
         workbook = None
         try:
-            workbook = load_workbook(filename= file.file, read_only= True, data_only= True)
+            workbook = load_workbook(filename= file, read_only= True, data_only= True)
             # CHeck if there's any worksheets or NOT
             if (not workbook.worksheets):
-                raise ValueError (f"檔案「{file.name}」沒有工作表。")
+                raise ValueError (f"檔案「{file_name}」沒有工作表。")
 
             # Get the first worksheet's all rows
             rows_iterator = workbook.worksheets[0].iter_rows(values_only=True)       
             
-            a = [row for row in rows_iterator]
-            print(a)
-            return [row for row in rows_iterator]
+            return [list(row) for row in rows_iterator]
 
 
         except Exception as e:
-            raise ValueError( f"無法讀取 Excel 檔案「{file.name}」, 原因為 {e}")
+            raise ValueError( f"無法讀取 Excel 檔案「{file_name}」, 原因為 {e}")
 
         # need to close workbook if workbook got any worksheets or not
         finally:
