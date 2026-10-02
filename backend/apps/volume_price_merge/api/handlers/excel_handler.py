@@ -13,6 +13,7 @@ class ExcelHandler:
     def __init__(self):
         self.__RE_handler = REHandler()
 
+
     def _detect_header_matrix_structure(self, rows) -> dict:
         scan_limit = min(len(rows), 8)
         # Find index of year header
@@ -180,7 +181,7 @@ class ExcelHandler:
 
         # Extract deduplicated product(crop) name from columns
         # Note: dict.formkeys() help us to deduplicate crop and contain the origin order.
-        available_crops = [dict.fromkeys(column["crop"] for column in columns) ]
+        available_crops = sorted({column["crop"] for column in columns})
 
         return {
             "schema_version": 1,

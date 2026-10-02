@@ -41,8 +41,8 @@ class Job(models.Model):
     error_message = models.TextField(blank=True)
 
     expires_at = models.DateTimeField(db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True) # update automatically when created record.
+    updated_at = models.DateTimeField(auto_now=True) # update automatically when update record.
 
 
 

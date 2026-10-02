@@ -29,38 +29,53 @@ class MergingService:
 
 
     def run(self, public_id: UUID) -> dict[str, Any]:
-        job = self.__claim_pending_job(public_id)
+        job = self._claim_pending_job(public_id)
 
         try:
             result_data = self._build_result(job)
 
             with transaction.atomic():
+                # Save result to merge job
                 merge_job = VolumePriceMergeJob.objects.select_for_update().get(job_id=job.pk)
                
                 merge_job.result_data = result_data
                 merge_job.save(update_fields=["result_data"])
 
-                # job.status = Job.Status.SUCCEEDED
-                # job.error_code = ""
-                # job.error_message = ""
-                # job.save(
-                #     update_fields=[
-                #         "status",
-                #         "error_code",
-                #         "error_message",
-                #         "updated_at",
-                #     ]
-                # )
 
-            return result_data
+                # Then change status of job succeeded 
+                job.status = Job.Status.SUCCEEDED
+                job.error_code = ""
+                job.error_message = ""
+                job.save(
+                    update_fields=[
+                        "status",
+                        "error_code",
+                        "error_message",
+                        "updated_at",
+                    ]
+                )
+
+
+                # Wrap summary response because of Step 3 in React.
+                result_summary_response = {
+                            "public_id": job.public_id,
+                            "status": Job.Status.SUCCEEDED,
+                            "summary": {
+                                "column_count": result_data["summary"]["column_count"],
+                                "row_count": result_data["summary"]["row_count"],
+                                "available_crops": result_data["available_crops"],
+                            },
+                        }
+
+            return result_summary_response
 
         except Exception:
-            # Job.objects.filter(pk=job.pk,status=Job.Status.RUNNING,).update(
-            #                                                             status=Job.Status.FAILED,
-            #                                                             error_code="merge_failed",
-            #                                                             error_message="合併處理失敗。",
-            #                                                         )
-            pass
+            Job.objects.filter(pk=job.pk,status=Job.Status.RUNNING,).update(
+                                                                        status=Job.Status.FAILED,
+                                                                        error_code="merge_failed",
+                                                                        error_message="合併處理失敗。",
+                                                                        updated_at= timezone.now()
+                                                                    )
             raise 
 
 
@@ -100,12 +115,14 @@ class MergingService:
         # 3. Build response data
         result_data = self.__excel_handler.build_result_data(column_order, merged_rows)
 
+
         return result_data
 
 
-    def __claim_pending_job(self, public_id: UUID):
+    def _claim_pending_job(self, public_id: UUID):
         """
-        Get and Process the pending job
+        Get pending job
+        then modify its status depends on expiration date etc.
         """
         with transaction.atomic():
             # Look for specific ORM object filtered by mutiple condition from filter()/get() = WHERE in SQL syntax.
@@ -114,15 +131,35 @@ class MergingService:
             job = Job.objects.select_for_update().get(public_id = public_id, kind = Job.Kind.VOLUME_PRICE_MERGE, )
             
             if (job.expires_at <= timezone.now()):
+                # If it's out of date -> expired and raise error
                 job.status = Job.Status.EXPIRED
-                job.save(update_fields=["status", "created_at"])
+                job.save(update_fields=["status", "updated_at"])
                 raise ValueError("The job is expired.")
-
-            if job.status != Job.Status.PENDING:
+            elif job.status != Job.Status.PENDING:
+                # If it's not pending job -> raise error 
                 raise ValueError("The job can NOT be executed.")
-            
-            job.status = Job.Status.RUNNING
-            job.save(update_fields=["status", "created_at"])
+            else:
+                # Normal condition -> running
+                job.status = Job.Status.RUNNING
+                job.save(update_fields=["status", "updated_at"])
 
         return job
-            
+
+
+
+# Custom Error Exception: We can create custom Error to maintain the error except default Python Error
+
+class MergeJobError(Exception):
+    pass
+
+
+class MergeJobExpired(MergeJobError):
+    pass
+
+
+class MergeJobNotRunnable(MergeJobError):
+    pass
+
+
+class MergeInputInvalid(MergeJobError):
+    pass
