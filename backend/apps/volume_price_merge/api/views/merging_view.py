@@ -3,17 +3,22 @@ Duty on Merging prduction/area informations after checking sucessful pairing res
 """
 from uuid import UUID
 
-from django.shortcuts import render
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
-# Most customization cases should be covered by the extend_schema decorator.
-from drf_spectacular.utils import extend_schema
-from apps.volume_price_merge.api.services.merging_service import MergingService, MergeJobExpired, MergeJobNotRunnable
-from apps.volume_price_merge.api.serializers.merging_serializer import MergingSummaryResponseSerializer
+
 from apps.jobs.models import Job
+from apps.volume_price_merge.api.serializers.merging_serializer import (
+    MergingSummaryDataSerializer,
+    MergingSummaryResponseSerializer,
+)
+from apps.volume_price_merge.api.services.merging_service import (
+    MergeJobExpired,
+    MergeJobNotRunnable,
+    MergingService,
+)
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
 
@@ -22,13 +27,14 @@ from config.utils.response_serializers import ErrorResponseSerializer
 class MergingView(APIView):
     authentication_classes: list[type] = []
     permission_classes: list[type] = []
-    serializer_class = MergingSummaryResponseSerializer
+    serializer_class = MergingSummaryDataSerializer
 
     
     @extend_schema(
         summary="執行生產量值整併",
+        request=None,
         responses={
-            201: MergingSummaryResponseSerializer,
+            200: MergingSummaryResponseSerializer,
             404: ErrorResponseSerializer,
             409: ErrorResponseSerializer,
             410: ErrorResponseSerializer,
@@ -37,18 +43,17 @@ class MergingView(APIView):
         tags=["Volume Price Merge"],
     )
 
-    def post(self, request: Request, public_id: UUID):
+    def post(self, request: Request, public_id: UUID) -> Response:
         # Don't need intput serailizer cause dynamic URL parameter
         # help us to check data type from client (React)
         
         try:
             merging_service = MergingService()
             result = merging_service.run(public_id)
-            print(result)
-            output_serializer = MergingSummaryResponseSerializer(data= result)
+            output_serializer = self.serializer_class(data=result)
             output_serializer.is_valid(raise_exception= True)
             return ResponseFormatter.success_response(
-                    data= output_serializer.validated_data,
+                    data=output_serializer.data,
                     http_status= status.HTTP_200_OK,
                     message= "合併完成。",
 
@@ -75,8 +80,7 @@ class MergingView(APIView):
                     message= "目前的工作狀態無法執行合併。",
                 )
 
-        except Exception as e:
-            print(e)
+        except Exception:
             return ResponseFormatter.error_response(
                     code= "internal_server_error",
                     http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,

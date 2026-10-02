@@ -21,9 +21,6 @@ class ExcelHandler:
             index for index, row in enumerate(rows[:scan_limit])
             if any(self.__RE_handler.is_year(cell) for cell in row)
         ]
-        print(year_row_index)
-
-
         if not year_row_index:
          raise ValueError("Can't find any year information in excel file. Please check header structure of file.")
         
@@ -180,7 +177,7 @@ class ExcelHandler:
         ]
 
         # Extract deduplicated product(crop) name from columns
-        # Note: dict.formkeys() help us to deduplicate crop and contain the origin order.
+        # A sorted set matches the prototype's stable crop options for Step 4.
         available_crops = sorted({column["crop"] for column in columns})
 
         return {

@@ -58,6 +58,19 @@ const successfulPairingPayload = {
   message: 'Pairing Sucessfully! And Job created.',
 }
 
+const successfulMergePayload = {
+  data: {
+    public_id: '04aa5e62-6b20-4cbd-8555-9a0cc83d121d',
+    status: 'succeeded',
+    summary: {
+      column_count: 154,
+      row_count: 4,
+      available_crops: ['香蕉', '鳳梨'],
+    },
+  },
+  message: '合併完成。',
+}
+
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(() => new Promise(() => undefined)))
 })
@@ -150,7 +163,7 @@ describe('application routes', () => {
     const productionFiles = screen.getByLabelText('選擇產量及產值檔案')
     expect(productionFiles).toBeEnabled()
     expect(productionFiles).toHaveClass('motion-file-picker__input')
-    expect(productionFiles).toHaveAttribute('aria-labelledby', 'production-files-label')
+    expect(productionFiles).toHaveAccessibleName('選擇產量及產值檔案')
     expect(productionFiles).toHaveAttribute('multiple')
     expect(productionFiles).toHaveAccessibleDescription(/多份 \.xlsx/)
     expect(document.getElementById('production-files-label')).toHaveClass('motion-file-picker__label')
@@ -159,7 +172,7 @@ describe('application routes', () => {
     const areaFiles = screen.getByLabelText('選擇種植及收穫面積檔案')
     expect(areaFiles).toBeEnabled()
     expect(areaFiles).toHaveClass('motion-file-picker__input')
-    expect(areaFiles).toHaveAttribute('aria-labelledby', 'area-files-label')
+    expect(areaFiles).toHaveAccessibleName('選擇種植及收穫面積檔案')
     expect(areaFiles).toHaveAttribute('multiple')
     expect(areaFiles).toHaveAccessibleDescription(/多份 \.xlsx/)
     expect(document.getElementById('area-files-label')).toHaveClass('motion-file-picker__label')
@@ -274,6 +287,7 @@ describe('application routes', () => {
     expect(screen.getAllByText('缺少檔案')).toHaveLength(2)
     expect(screen.getByText('「果品」缺少種植及收穫面積檔案。')).toBeInTheDocument()
     expect(screen.queryByText(/工作編號/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '開始整併' })).not.toBeInTheDocument()
 
     await waitFor(() => expect(screen.getByRole('button', { name: '返回選擇檔案' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: '返回選擇檔案' }))
@@ -281,6 +295,108 @@ describe('application routes', () => {
     expect(screen.getByText(productionFile.name)).toBeInTheDocument()
     expect(screen.getByText(areaFile.name)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('button', { name: '檢查檔案配對' })).toBeEnabled())
+  })
+
+  it('runs the real merge once, shows processing, and enters step 4 with the response summary', async () => {
+    let resolveMerge!: (response: Response) => void
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(201, successfulPairingPayload))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveMerge = resolve }))
+    renderRoute('/volume-price-merge')
+    selectMergeFiles(
+      makeFile('果品產量及產值.xlsx'),
+      makeFile('果品種植及收穫面積.xlsx'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    const startButton = await screen.findByRole('button', { name: '開始整併' })
+    await waitFor(() => expect(startButton).toBeEnabled())
+    fireEvent.click(startButton)
+    fireEvent.click(startButton)
+
+    expect(await screen.findByRole('heading', { name: '3. 開始整併' })).toBeInTheDocument()
+    const processingText = screen.getByText('正在整併資料…')
+    expect(processingText.closest('[role="status"]')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByText(/04aa5e62-6b20-4cbd-8555-9a0cc83d121d/)).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/v1/price-volume-merge/jobs/04aa5e62-6b20-4cbd-8555-9a0cc83d121d/run/',
+      { method: 'POST' },
+    )
+
+    resolveMerge(jsonResponse(200, successfulMergePayload))
+
+    const resultHeading = await screen.findByRole(
+      'heading',
+      { name: '4. 查詢與下載' },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(resultHeading).toHaveFocus())
+    expect(screen.getByText('結果欄數').parentElement).toHaveTextContent('結果欄數154')
+    expect(screen.getByText('統計指標列數').parentElement).toHaveTextContent('統計指標列數4')
+    expect(screen.getByText('香蕉')).toBeInTheDocument()
+    expect(screen.getByText('鳳梨')).toBeInTheDocument()
+    expect(screen.getByText('查詢與 Excel 下載尚未提供')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /下載|查詢/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新開始' })).toBeInTheDocument()
+
+    const steps = within(screen.getByRole('list', { name: '果品整併工作流程' })).getAllByRole('listitem')
+    expect(steps[2]).toHaveTextContent('已完成')
+    expect(steps[3]).toHaveAttribute('aria-current', 'step')
+  })
+
+  it.each([
+    ['job_not_found', 404, '找不到這筆整併工作'],
+    ['job_not_runnable', 409, '目前狀態不允許再次整併'],
+    ['job_expired', 410, '已過期'],
+    ['internal_server_error', 500, '伺服器未能完成整併'],
+  ])('keeps a %s run failure in step 3', async (code, responseStatus, message) => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(201, successfulPairingPayload))
+      .mockResolvedValueOnce(jsonResponse(responseStatus, {
+        code,
+        message: 'Traceback: private server detail',
+        field_errors: {},
+      }))
+    renderRoute('/volume-price-merge')
+    selectMergeFiles(
+      makeFile('果品產量及產值.xlsx'),
+      makeFile('果品種植及收穫面積.xlsx'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    const startButton = await screen.findByRole('button', { name: '開始整併' })
+    await waitFor(() => expect(startButton).toBeEnabled())
+    fireEvent.click(startButton)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(message)
+    expect(alert).not.toHaveTextContent('Traceback')
+    expect(screen.getByRole('heading', { name: '3. 開始整併' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '4. 查詢與下載' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '返回重新建立工作' })).toBeInTheDocument()
+  })
+
+  it('does not offer a blind retry when the merge network result is unknown', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(201, successfulPairingPayload))
+      .mockRejectedValueOnce(new Error('network disconnected'))
+    renderRoute('/volume-price-merge')
+    selectMergeFiles(
+      makeFile('果品產量及產值.xlsx'),
+      makeFile('果品種植及收穫面積.xlsx'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '檢查檔案配對' }))
+    const startButton = await screen.findByRole('button', { name: '開始整併' })
+    await waitFor(() => expect(startButton).toBeEnabled())
+    fireEvent.click(startButton)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('無法確認伺服器是否已完成整併')
+    expect(alert).toHaveTextContent('不會自動重送這個工作編號')
+    expect(screen.queryByRole('button', { name: /重試整併/ })).not.toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('replaces a selected group after returning and does not reuse the old job result', async () => {

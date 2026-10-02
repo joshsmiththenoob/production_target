@@ -1,8 +1,9 @@
-from pathlib import Path
 from rest_framework import serializers
+
 from apps.jobs.models import Job
 
-class MergeRunDataSerializer(serializers.Serializer):
+
+class MergeSummarySerializer(serializers.Serializer):
     """
     The Summary of merging result
     """
@@ -13,16 +14,17 @@ class MergeRunDataSerializer(serializers.Serializer):
     )
 
 
-class MergingSummaryResponseSerializer(serializers.Serializer):
+class MergingSummaryDataSerializer(serializers.Serializer):
     """
     Response of merging job in Step3
     -> Just return summary of merging result
     """
     public_id = serializers.UUIDField()
-    status = serializers.ChoiceField(choices=Job.Status.choices,)
-    summary = MergeRunDataSerializer()
+    status = serializers.ChoiceField(choices=Job.Status.choices)
+    summary = MergeSummarySerializer()
 
 
-
-
-
+class MergingSummaryResponseSerializer(serializers.Serializer):
+    data = MergingSummaryDataSerializer()
+    message = serializers.CharField()
+    meta = serializers.DictField(allow_null=True, required=False)

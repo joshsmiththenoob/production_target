@@ -4,22 +4,14 @@ In charge of Merging prudction/area files based on category - year - product nam
 from typing import Any
 from uuid import UUID
 
-from django.core.files.uploadedfile import UploadedFile
-from django.shortcuts import get_object_or_404
-
-from ..handlers.workbook_reader import WorkbookReader
-from ..handlers.category_recognizer import CategoryRecognizer
-from ..handlers.pair_validator import PairValidator
-from ..handlers.excel_handler import ExcelHandler
-
-from datetime import timedelta
-
 from django.db import transaction
 from django.utils import timezone
 
 from apps.jobs.models import Job
-from ...models import MergeInputFile, VolumePriceMergeJob
 
+from ...models import MergeInputFile, VolumePriceMergeJob
+from ..handlers.excel_handler import ExcelHandler
+from ..handlers.workbook_reader import WorkbookReader
 
 
 class MergingService:
@@ -56,30 +48,32 @@ class MergingService:
                 )
 
 
-                # Wrap summary response because of Step 3 in React.
                 result_summary_response = {
-                            "public_id": job.public_id,
-                            "status": Job.Status.SUCCEEDED,
-                            "summary": {
-                                "column_count": result_data["summary"]["column_count"],
-                                "row_count": result_data["summary"]["row_count"],
-                                "available_crops": result_data["available_crops"],
-                            },
-                        }
+                    "public_id": job.public_id,
+                    "status": job.status,
+                    "summary": {
+                        "column_count": result_data["summary"]["column_count"],
+                        "row_count": result_data["summary"]["row_count"],
+                        "available_crops": result_data["available_crops"],
+                    },
+                }
 
             return result_summary_response
 
         except Exception:
-            Job.objects.filter(pk=job.pk,status=Job.Status.RUNNING,).update(
-                                                                        status=Job.Status.FAILED,
-                                                                        error_code="merge_failed",
-                                                                        error_message="合併處理失敗。",
-                                                                        updated_at= timezone.now()
-                                                                    )
-            raise 
+            Job.objects.filter(
+                pk=job.pk,
+                status=Job.Status.RUNNING,
+            ).update(
+                status=Job.Status.FAILED,
+                error_code="merge_failed",
+                error_message="合併處理失敗。",
+                updated_at=timezone.now(),
+            )
+            raise
 
 
-    def _build_result(self, job: Job):
+    def _build_result(self, job: Job) -> dict[str, Any]:
         # Check if status of Job is pending(ready) or not though interal primary key of Job ORM Object
         input_files = MergeInputFile.objects.filter(merge_job_id=job.pk).order_by("id")
 
@@ -110,8 +104,6 @@ class MergingService:
         if not merged_rows:
             raise ValueError("Can't find any mergable rows in dataset.")
         
-        # print(merged_rows)
-
         # 3. Build response data
         result_data = self.__excel_handler.build_result_data(column_order, merged_rows)
 
@@ -119,29 +111,34 @@ class MergingService:
         return result_data
 
 
-    def _claim_pending_job(self, public_id: UUID):
+    def _claim_pending_job(self, public_id: UUID) -> Job:
         """
         Get pending job
         then modify its status depends on expiration date etc.
         """
+        job_error: MergeJobError | None = None
+
         with transaction.atomic():
             # Look for specific ORM object filtered by mutiple condition from filter()/get() = WHERE in SQL syntax.
             # select_for_update():
             # the selected entries(ORM objects) will be locked that another request can NOT modify corresponding entries until this transaction is finished.
             job = Job.objects.select_for_update().get(public_id = public_id, kind = Job.Kind.VOLUME_PRICE_MERGE, )
             
-            if (job.expires_at <= timezone.now()):
+            if job.expires_at <= timezone.now():
                 # If it's out of date -> expired and raise error
                 job.status = Job.Status.EXPIRED
                 job.save(update_fields=["status", "updated_at"])
-                raise ValueError("The job is expired.")
+                job_error = MergeJobExpired()
             elif job.status != Job.Status.PENDING:
                 # If it's not pending job -> raise error 
-                raise ValueError("The job can NOT be executed.")
+                job_error = MergeJobNotRunnable()
             else:
                 # Normal condition -> running
                 job.status = Job.Status.RUNNING
                 job.save(update_fields=["status", "updated_at"])
+
+        if job_error is not None:
+            raise job_error
 
         return job
 

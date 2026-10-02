@@ -40,3 +40,24 @@ def make_invalid_xlsx_upload(filename: str) -> SimpleUploadedFile:
         b"this is not an xlsx archive",
         content_type=XLSX_CONTENT_TYPE,
     )
+
+
+def make_matrix_xlsx_upload(
+    filename: str,
+    rows: list[list[object]],
+) -> SimpleUploadedFile:
+    workbook = Workbook()
+    worksheet = workbook.active
+
+    for row in rows:
+        worksheet.append(row)
+
+    content = BytesIO()
+    workbook.save(content)
+    workbook.close()
+
+    return SimpleUploadedFile(
+        filename,
+        content.getvalue(),
+        content_type=XLSX_CONTENT_TYPE,
+    )

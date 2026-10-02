@@ -1,5 +1,4 @@
 from typing import Any
-from rest_framework import status
 from rest_framework.response import Response
 
 
@@ -9,7 +8,13 @@ class ResponseFormatter:
     # the parameter after '*' must be specified parameter name of argument instead of using positional argument directly while another program call it. 
     # Ex: success_response(response_data, message = response_message, meta = response_meta)
     @staticmethod
-    def success_response(data: Any = None, *, http_status: status, message: str = None, meta: dict[str, Any] = None) -> dict[str, Any]:
+    def success_response(
+        data: Any = None,
+        *,
+        http_status: int,
+        message: str | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> Response:
         """
         Format the response in a standard specification:
 
@@ -37,11 +42,17 @@ class ResponseFormatter:
     #     return Response(payload, status= http_status)
 
     @staticmethod
-    def error_response(code: str, *, http_status: status, message: str, field_errors: dict[str, Any] = None):
+    def error_response(
+        code: str,
+        *,
+        http_status: int,
+        message: str,
+        field_errors: dict[str, Any] | None = None,
+    ) -> Response:
         response_data: dict[str, Any] = {
             "code": code,
             "message": message,
-            "field_errors": field_errors
+            "field_errors": field_errors or {},
         }
 
         return Response(response_data, status= http_status)

@@ -889,6 +889,12 @@ button:hover {
   flex: 0 0 auto;
 }
 
+.work-action-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-3);
+}
+
 .work-action-button__content {
   display: inline-flex;
   align-items: center;
@@ -906,6 +912,149 @@ button:hover {
 
 .work-action-bar p {
   margin: 0;
+  color: var(--color-text-muted);
+}
+
+.merge-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  max-width: 48rem;
+  align-items: center;
+  gap: var(--space-5);
+  margin: var(--space-6) auto 0;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.merge-status--success {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.merge-status--error {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.merge-status__icon-frame {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+}
+
+.merge-status__spinner {
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0.35rem solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+}
+
+.merge-status__check,
+.merge-status__error-icon {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.merge-status__check {
+  color: var(--color-success);
+}
+
+.merge-status__error-icon {
+  color: var(--color-error);
+}
+
+.merge-status__copy {
+  min-width: 0;
+}
+
+.merge-status__copy strong {
+  font-size: 1.25rem;
+}
+
+.merge-status__copy p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+.merge-status__job-id {
+  overflow-wrap: anywhere;
+}
+
+.merge-status__job-id code {
+  color: var(--color-text);
+}
+
+.merge-result__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-6) 0 0;
+}
+
+.merge-result__summary > div {
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.merge-result__summary dt {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.merge-result__summary dd {
+  margin: var(--space-2) 0 0;
+  color: var(--color-primary);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+}
+
+.merge-result__crops {
+  margin-top: var(--space-6);
+}
+
+.merge-result__crops h3 {
+  font-size: 1.15rem;
+}
+
+.merge-result__crops ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.merge-result__crops li {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.merge-result__pending {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  border-left: 0.35rem solid var(--color-accent);
+  background: var(--color-surface-muted);
+}
+
+.merge-result__pending p {
+  margin: var(--space-1) 0 0;
   color: var(--color-text-muted);
 }
 
@@ -1068,6 +1217,25 @@ button:hover {
 
   .work-action-bar button {
     width: 100%;
+  }
+
+  .work-action-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .merge-status {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .merge-status__copy {
+    width: 100%;
+  }
+
+  .merge-result__summary {
+    grid-template-columns: 1fr;
   }
 
   .placeholder {
