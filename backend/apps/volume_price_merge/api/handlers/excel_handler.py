@@ -190,3 +190,36 @@ class ExcelHandler:
                 "row_count": len(rows),
             }
         }
+
+
+    def query(job_id: str):
+        """
+        Query the specific product in result of specialized job
+        """
+        pass
+
+
+    def filter_by_product(result_data: dict, product: str= '') -> dict:
+        """
+        Find specific product's merged result
+        """
+        if not job or "columnOrder" not in job:
+            return jsonify({"ok": False, "message": "請先完成合併。"}), 400
+        crop = text(payload.get("crop"))
+        if not crop:
+            return jsonify({"ok": False, "message": "請先選擇作物。"}), 400
+        matched = [(index, column) for index, column in enumerate(job["columnOrder"]) if column["crop"] == crop]
+        if not matched:
+            return jsonify({"ok": False, "message": f"找不到作物「{crop}」。"}), 404
+        result_rows = []
+        for row in job["mergedRows"]:
+            values = [row["values"][index] for index, _column in matched]
+            if any(not is_blank(value) for value in values):
+                result_rows.append({"metric": row["metric"], "values": values})
+        if not result_rows:
+            return jsonify({"ok": False, "message": f"作物「{crop}」查無有效資料。"}), 404
+        result = {"crop": crop, "columns": [column for _index, column in matched], "rows": result_rows}
+        job["query"] = result
+        return jsonify({"ok": True, "result": result, "downloadUrl": f"/download-query/{job_id}"})
+            
+        

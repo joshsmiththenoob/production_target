@@ -28,3 +28,8 @@ class MergingSummaryResponseSerializer(serializers.Serializer):
     data = MergingSummaryDataSerializer()
     message = serializers.CharField()
     meta = serializers.DictField(allow_null=True, required=False)
+
+
+
+class MergeResultRequestSerializer(serializers.Serializer):
+    product = serializers.CharField()

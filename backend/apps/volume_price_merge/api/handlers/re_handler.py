@@ -21,3 +21,7 @@ class REHandler():
     def year_number(self, value: str) -> int:
         match = re.search(r"1\d{2}", value)
         return int(match.group()) if match else 9999
+
+        
+    def text(self, value: Any) -> str:
+        return "" if self.is_blank(value) else str(value).strip()

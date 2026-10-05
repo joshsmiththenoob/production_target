@@ -21,7 +21,9 @@ class MergingService:
 
 
     def run(self, public_id: UUID) -> dict[str, Any]:
-        job = self._claim_pending_job(public_id)
+        
+        # Check if job's status is pending, then change its status and extract it
+        job = self._claim_job(public_id, Job.Status.PENDING)
 
         try:
             result_data = self._build_result(job)
@@ -111,7 +113,39 @@ class MergingService:
         return result_data
 
 
-    def _claim_pending_job(self, public_id: UUID) -> Job:
+    # def _claim_pending_job(self, public_id: UUID) -> Job:
+    #     """
+    #     Get pending job
+    #     then modify its status depends on expiration date etc.
+    #     """
+    #     job_error: MergeJobError | None = None
+
+    #     with transaction.atomic():
+    #         # Look for specific ORM object filtered by mutiple condition from filter()/get() = WHERE in SQL syntax.
+    #         # select_for_update():
+    #         # the selected entries(ORM objects) will be locked that another request can NOT modify corresponding entries until this transaction is finished.
+    #         job = Job.objects.select_for_update().get(public_id = public_id, kind = Job.Kind.VOLUME_PRICE_MERGE, )
+            
+    #         if job.expires_at <= timezone.now():
+    #             # If it's out of date -> expired and raise error
+    #             job.status = Job.Status.EXPIRED
+    #             job.save(update_fields=["status", "updated_at"])
+    #             job_error = MergeJobExpired()
+    #         elif job.status != Job.Status.PENDING:
+    #             # If it's not pending job -> raise error 
+    #             job_error = MergeJobNotRunnable()
+    #         else:
+    #             # Normal condition -> running
+    #             job.status = Job.Status.RUNNING
+    #             job.save(update_fields=["status", "updated_at"])
+
+    #     if job_error is not None:
+    #         raise job_error
+
+    #     return job
+
+
+    def _claim_job(self, public_id: UUID, status= Job.Status.choices):
         """
         Get pending job
         then modify its status depends on expiration date etc.
@@ -129,23 +163,49 @@ class MergingService:
                 job.status = Job.Status.EXPIRED
                 job.save(update_fields=["status", "updated_at"])
                 job_error = MergeJobExpired()
-            elif job.status != Job.Status.PENDING:
+            elif job.status != status:
                 # If it's not pending job -> raise error 
                 job_error = MergeJobNotRunnable()
             else:
-                # Normal condition -> running
-                job.status = Job.Status.RUNNING
-                job.save(update_fields=["status", "updated_at"])
-
+                if status == Job.Status.PENDING:
+                    # Normal pending condition -> change to running. If it's succeeded conidtion -> do nothing.
+                    job.status = Job.Status.RUNNING
+                    job.save(update_fields=["status", "updated_at"])
+                    
+    
         if job_error is not None:
             raise job_error
-
         return job
 
 
+    def query_result(self, public_id: UUID, product: str) -> None:
+        """
+        Get the created merged result from database
+        """
+        # Check if job is succeeded to extract.
+        job = self._claim_job(public_id, Job.Status.SUCCEEDED)
+        try:
+            result_data = self._filter_by_product(job)
+
+            with transaction.atomic():
+                pass
+            
+
+        except Exception:
+            Job.objects.filter(
+                pk=job.pk,
+                status=Job.Status.RUNNING,
+            ).update(
+                status=Job.Status.FAILED,
+                error_code="merge_failed",
+                error_message="合併處理失敗。",
+                updated_at=timezone.now(),
+            )
+            raise
+        
+
 
 # Custom Error Exception: We can create custom Error to maintain the error except default Python Error
-
 class MergeJobError(Exception):
     pass
 

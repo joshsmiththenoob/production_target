@@ -25,13 +25,13 @@ from config.utils.response_serializers import ErrorResponseSerializer
 
 # Create your views here.
 
-class MergingView(APIView):
+class MergingDownloadView(APIView):
     authentication_classes: list[type] = []
     permission_classes: list[type] = []
 
     
     @extend_schema(
-        summary="執行生產量值整併",
+        summary="執行生產量值整併(下載測試)",
         request=None,
         responses={
             200: MergingSummaryResponseSerializer,
@@ -87,3 +87,29 @@ class MergingView(APIView):
                     http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,
                     message= "合併處理失敗，請稍後再試。",
                 )
+
+
+
+    # @extend_schema(
+    #     summary="查詢已存在之合併結果",
+    #     # request payload
+    #     request=MergeResultRequestSerializer,
+    #     # parameters=MergeResultRequestSerializer,
+    #     responses={
+    #         200: MergingSummaryResponseSerializer,
+    #         404: ErrorResponseSerializer,
+    #         409: ErrorResponseSerializer,
+    #         410: ErrorResponseSerializer,
+    #         500: ErrorResponseSerializer,
+    #     },
+    #     tags=["Volume Price Merge"],
+    # )
+    # def get(self, request: Request, public_id: UUID) -> Response:
+    #     """
+    #     Get the existed merged result of specific job
+    #     """
+    #     try:
+    #         merging_service = MergingService()
+    #         merging_service.query_result(public_id)
+    #     except MergeJobNotRunnable as e:
+    #         print(e)
