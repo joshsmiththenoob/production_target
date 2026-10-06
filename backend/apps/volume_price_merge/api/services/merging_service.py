@@ -184,8 +184,11 @@ class MergingService:
         """
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED)
+        print(job)
         try:
-            result_data = self._filter_by_product(job)
+            merge_job = VolumePriceMergeJob.objects.get(job_id = job.pk)
+            print(merge_job.result_data)
+            result_data = self._filter_by_product(merge_job.result_data, product)
 
             with transaction.atomic():
                 pass
