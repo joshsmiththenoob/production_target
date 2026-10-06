@@ -11,16 +11,17 @@ from rest_framework.views import APIView
 
 from apps.jobs.models import Job
 from apps.volume_price_merge.api.serializers.merging_result_serializer import (
-    MergeResultRequestSerializer
+    MergeResultRequestSerializer,
+    MergeResultResponseSErializer,
 )
 from apps.volume_price_merge.api.serializers.merging_serializer import(
-    MergingSummaryResponseSerializer
+    MergingSummaryResponseSerializer,
 )
 
 
 from apps.volume_price_merge.api.services.merging_service import (
     MergeJobExpired,
-    MergeJobNotRunnable,
+    MergeJobNotInStatus,
     MergingService,
 )
 from config.utils.response_formatter import ResponseFormatter
@@ -99,7 +100,7 @@ class MergingResultView(APIView):
         # request=MergeResultRequestSerializer,
         parameters=[MergeResultRequestSerializer],
         responses={
-            200: MergingSummaryResponseSerializer,
+            200: MergeResultResponseSErializer,
             404: ErrorResponseSerializer,
             409: ErrorResponseSerializer,
             410: ErrorResponseSerializer,
@@ -115,12 +116,46 @@ class MergingResultView(APIView):
 
 
         try:
-            print(request.query_params)
             # Parse query parameters with serializer
             input_serializer = MergeResultRequestSerializer(data= request.query_params)
             input_serializer.is_valid(raise_exception= True)
-            print(input_serializer.validated_data)
             merging_service = MergingService()
-            merging_service.query_result(public_id, input_serializer.validated_data["product"])
-        except MergeJobNotRunnable as e:
-            print(e)
+            query_result = merging_service.query_by_product(public_id, input_serializer.validated_data["product"])
+            output_serializer = MergeResultResponseSErializer(data=query_result)
+            output_serializer.is_valid(raise_exception= True)
+            print(output_serializer.is_valid())
+
+            return ResponseFormatter.success_response(
+                    data=output_serializer.data,
+                    http_status= status.HTTP_200_OK,
+                    message= "查詢完成。",
+
+            )
+
+        except Job.DoesNotExist:
+            return ResponseFormatter.error_response(
+                    code= "job_not_found",
+                    http_status= status.HTTP_404_NOT_FOUND,
+                    message= "找不到指定的工作。",
+                )
+
+        except MergeJobExpired:
+            return ResponseFormatter.error_response(
+                    code= "job_expired",
+                    http_status= status.HTTP_410_GONE,
+                    message= "工作已過期，請重新上傳檔案。",
+                )
+
+        except MergeJobNotInStatus:
+            return ResponseFormatter.error_response(
+                    code= "job_not_successful",
+                    http_status= status.HTTP_409_CONFLICT,
+                    message= "目前的工作狀態非合併完成，無法查詢。",
+                )
+
+        except Exception as e:
+            return ResponseFormatter.error_response(
+                    code= "internal_server_error",
+                    http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    message= "查詢失敗，請稍後再試。",
+                )

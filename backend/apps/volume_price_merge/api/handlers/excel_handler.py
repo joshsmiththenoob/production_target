@@ -192,11 +192,11 @@ class ExcelHandler:
         }
 
 
-    def query(job_id: str):
-        """
-        Query the specific product in result of specialized job
-        """
-        pass
+    # def query(job_id: str):
+    #     """
+    #     Query the specific product in result of specialized job
+    #     """
+    #     pass
 
 
     def filter_by_product(self, result_data: dict, product: str= '') -> dict:
@@ -204,10 +204,10 @@ class ExcelHandler:
         Find specific product's merged result
         """
         if not product:
-                raise ValueError("Doesn't choose product yet. Please choose 1 product.")
+            raise ValueError("Doesn't choose product yet. Please choose 1 product.")
         
         
-        matched = [(index, column) for index, column in enumerate(result_data["columns"]) if column["available_crops"] == product]
+        matched = [(index, column) for index, column in enumerate(result_data["columns"]) if column["crop"] == product]
         if not matched:
            raise ValueError(f"Invalid product name 「{product}」 in result of job. -> Can't find this product")
 
@@ -223,8 +223,11 @@ class ExcelHandler:
             raise ValueError(f"Invalid「{product}」data in this result of job")
 
         
-        result = {"crop": u, "columns": [column for _index, column in matched], "rows": result_rows}
-        job["query"] = result
-        return jsonify({"ok": True, "result": result, "downloadUrl": f"/download-query/{job_id}"})
+        return {
+                "product": product, 
+                "columns": [column for _index, column in matched], 
+                "rows": result_rows
+                }
+
             
         

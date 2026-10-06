@@ -17,7 +17,7 @@ from apps.volume_price_merge.api.serializers.merging_serializer import (
 )
 from apps.volume_price_merge.api.services.merging_service import (
     MergeJobExpired,
-    MergeJobNotRunnable,
+    MergeJobNotInStatus,
     MergingService,
 )
 from config.utils.response_formatter import ResponseFormatter
@@ -74,7 +74,7 @@ class MergingView(APIView):
                     message= "工作已過期，請重新上傳檔案。",
                 )
 
-        except MergeJobNotRunnable:
+        except MergeJobNotInStatus:
             return ResponseFormatter.error_response(
                     code= "job_not_runnable",
                     http_status= status.HTTP_409_CONFLICT,

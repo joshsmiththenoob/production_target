@@ -165,7 +165,7 @@ class MergingService:
                 job_error = MergeJobExpired()
             elif job.status != status:
                 # If it's not pending job -> raise error 
-                job_error = MergeJobNotRunnable()
+                job_error = MergeJobNotInStatus()
             else:
                 if status == Job.Status.PENDING:
                     # Normal pending condition -> change to running. If it's succeeded conidtion -> do nothing.
@@ -178,33 +178,27 @@ class MergingService:
         return job
 
 
-    def query_result(self, public_id: UUID, product: str) -> None:
+    def query_by_product(self, public_id: UUID, product: str) -> None:
         """
         Get the created merged result from database
         """
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED)
-        print(job)
         try:
+            # just READ from database, so we don't need to use "with transaction.atomic()"
             merge_job = VolumePriceMergeJob.objects.get(job_id = job.pk)
-            print(merge_job.result_data)
-            result_data = self._filter_by_product(merge_job.result_data, product)
+            query_result = self.__excel_handler.filter_by_product(merge_job.result_data, product)
 
-            with transaction.atomic():
-                pass
+            # Wrap response
+            query_response = {
+                 "public_id": job.public_id,
+                 "query_result": query_result,
+            }
+
+            return query_response
             
-
-        except Exception:
-            Job.objects.filter(
-                pk=job.pk,
-                status=Job.Status.RUNNING,
-            ).update(
-                status=Job.Status.FAILED,
-                error_code="merge_failed",
-                error_message="合併處理失敗。",
-                updated_at=timezone.now(),
-            )
-            raise
+        except ValueError as v:
+            print(v)
         
 
 
@@ -212,14 +206,11 @@ class MergingService:
 class MergeJobError(Exception):
     pass
 
-
 class MergeJobExpired(MergeJobError):
     pass
 
-
-class MergeJobNotRunnable(MergeJobError):
+class MergeJobNotInStatus(MergeJobError):
     pass
-
 
 class MergeInputInvalid(MergeJobError):
     pass

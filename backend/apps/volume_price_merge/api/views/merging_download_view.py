@@ -17,7 +17,7 @@ from apps.volume_price_merge.api.serializers.merging_serializer import (
 )
 from apps.volume_price_merge.api.services.merging_service import (
     MergeJobExpired,
-    MergeJobNotRunnable,
+    MergeJobNotInStatus,
     MergingService,
 )
 from config.utils.response_formatter import ResponseFormatter
@@ -43,7 +43,7 @@ class MergingDownloadView(APIView):
         tags=["Volume Price Merge"],
     )
 
-    def post(self, request: Request, public_id: UUID) -> Response:
+    def get(self, request: Request, public_id: UUID) -> Response:
         # Create the merged result of specialized job
         # Don't need intput serailizer cause dynamic URL parameter
         # help us to check data type from client (React)
@@ -74,7 +74,7 @@ class MergingDownloadView(APIView):
                     message= "工作已過期，請重新上傳檔案。",
                 )
 
-        except MergeJobNotRunnable:
+        except MergeJobNotInStatus:
             return ResponseFormatter.error_response(
                     code= "job_not_runnable",
                     http_status= status.HTTP_409_CONFLICT,
