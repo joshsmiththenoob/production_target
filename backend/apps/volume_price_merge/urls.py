@@ -14,6 +14,6 @@ urlpatterns = [
     path("jobs/", PairingView.as_view(), name="pairing"),
     path("jobs/<uuid:public_id>/run/",MergingView.as_view(), name="merging"),
     path("jobs/<uuid:public_id>/result/",MergingResultView.as_view(), name="query"),
-    path("jobs/<uuid:public_id>/download/",MergingView.as_view(), name="download")
+    path("jobs/<uuid:public_id>/download/",MergingDownloadView.as_view(), name="download")
 ]
 

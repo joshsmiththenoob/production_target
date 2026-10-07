@@ -25,3 +25,9 @@ class REHandler():
         
     def text(self, value: Any) -> str:
         return "" if self.is_blank(value) else str(value).strip()
+
+
+    def safe_filename(self, value: str) -> str:
+        cleaned = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "", self.text(value))
+        cleaned = re.sub(r"\s+", "", cleaned)[:80]
+        return cleaned

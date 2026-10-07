@@ -12,12 +12,14 @@ from apps.jobs.models import Job
 from ...models import MergeInputFile, VolumePriceMergeJob
 from ..handlers.excel_handler import ExcelHandler
 from ..handlers.workbook_reader import WorkbookReader
+from ..handlers.re_handler import REHandler
 
 
 class MergingService:
     def __init__(self):
         self.__work_book_reader = WorkbookReader()
         self.__excel_handler = ExcelHandler()
+        self.__RE_handler = REHandler
 
 
     def run(self, public_id: UUID) -> dict[str, Any]:
@@ -178,28 +180,46 @@ class MergingService:
         return job
 
 
-    def query_by_product(self, public_id: UUID, product: str) -> None:
+    def query_by_product(self, public_id: UUID, product: str) -> dict:
         """
         Get the created merged result from database
         """
+        # Check if product is provided by client.
+        job_error: MergeJobError | None = None
+        if not product or self.__RE_handler.is_blank(product):
+            job_error = MergeInputInvalid("Doesn't select product for querying")
+        
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED)
-        try:
-            # just READ from database, so we don't need to use "with transaction.atomic()"
-            merge_job = VolumePriceMergeJob.objects.get(job_id = job.pk)
-            query_result = self.__excel_handler.filter_by_product(merge_job.result_data, product)
 
-            # Wrap response
-            query_response = {
-                 "public_id": job.public_id,
-                 "query_result": query_result,
-            }
+        # just READ from database, so we don't need to use "with transaction.atomic()"
+        merge_job = VolumePriceMergeJob.objects.get(job_id = job.pk)
+        query_result = self.__excel_handler.filter_by_product(merge_job.result_data, product)
 
-            return query_response
-            
-        except ValueError as v:
-            print(v)
+        # Wrap response
+        query_response = {
+                "public_id": job.public_id,
+                "query_result": query_result,
+        }
+
+
+        if job_error is not None:
+            raise job_error
         
+        return query_response
+
+
+
+    def get_workbook(self, public_id: UUID, product: str) -> dict:
+        """
+        Create workbook depended on merged result in specific job.
+        """
+        # Check if job is succeeded to extract.
+        job = self._claim_job(public_id, Job.Status.SUCCEEDED)
+        with transaction.atomic():
+            # Get Inputfile from MergeJob 
+            input_files = MergeInputFile.objects(job_id=job.pk)
+            
 
 
 # Custom Error Exception: We can create custom Error to maintain the error except default Python Error

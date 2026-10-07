@@ -2,16 +2,21 @@
 Duty on every jobs in Excel, which has composition of workbook reader 
 and some other excel application objects.
 """
+import io
+from datetime import datetime
 from typing import Any
 from collections import OrderedDict
+from openpyxl import Workbook
+
 
 from .re_handler import REHandler
-
+from .excel_styler import ExcelStyler
 
 
 class ExcelHandler:
     def __init__(self):
         self.__RE_handler = REHandler()
+        self.__excel_styler = ExcelStyler()
 
 
     def _detect_header_matrix_structure(self, rows) -> dict:
@@ -229,5 +234,106 @@ class ExcelHandler:
                 "rows": result_rows
                 }
 
-            
-        
+
+    def _merge_header_cells(self, sheet, row_index: int, values: list[str]) -> None:
+        start = 0
+        while start < len(values):
+            end = start
+            while end + 1 < len(values) and values[end + 1] == values[start]:
+                end += 1
+            if end > start:
+                sheet.merge_cells(start_row=row_index, start_column=start + 2, end_row=row_index, end_column=end + 2)
+            start = end + 1
+
+
+    def build_workbook(self, all_sources: list[dict[str, Any]], column_order: list[dict[str, str]], merged_rows: list[dict[str, Any]], validation: dict[str, Any]) -> Workbook:
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "合併結果"
+        total_columns = len(column_order) + 1
+        rows = [
+            ["合併結果"] + [None] * (total_columns - 1),
+            ["統計指標"] + [column["year"] for column in column_order],
+            [None] + [column["majorCategory"] for column in column_order],
+            [None] + [column["crop"] for column in column_order],
+        ]
+        rows.extend([[row["metric"]] + row["values"] for row in merged_rows])
+        for row in rows:
+            sheet.append(row)
+        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
+        sheet.merge_cells(start_row=2, start_column=1, end_row=4, end_column=1)
+        self._merge_header_cells(sheet, 2, [column["year"] for column in column_order])
+        self._merge_header_cells(sheet, 3, [column["majorCategory"] for column in column_order])
+        self.__excel_styler.apply_table_style(sheet, len(rows), total_columns)
+
+        source_sheet = workbook.create_sheet("來源說明")
+        source_rows = [
+            ["項目", "內容"],
+            ["合併主鍵", "左側以統計指標保留並對齊；欄位唯一鍵為大項 + 年度 + 作物。"],
+            ["來源檔案數", len(all_sources)],
+            ["完整大項", "、".join(pair["majorCategory"] for pair in validation["complete"])],
+            ["保留方式", "重複統計指標與重複值全部保留，不去重；同一列多值以 / 串接。"],
+        ]
+        for row in source_rows:
+            source_sheet.append(row)
+        self.__excel_styler.style_note_sheet(source_sheet, len(source_rows))
+
+        pair_sheet = workbook.create_sheet("配對結果")
+        pair_sheet.append(["大項", "產量及產值檔案", "種植及收穫面積檔案", "結果"])
+        for pair in validation["complete"] + validation["incomplete"]:
+            pair_sheet.append([
+                pair["majorCategory"],
+                "\n".join(item["fileName"] for item in pair["production"]) or "缺少",
+                "\n".join(item["fileName"] for item in pair["area"]) or "缺少",
+                "完整" if pair["production"] and pair["area"] else "不完整",
+            ])
+        pair_sheet.column_dimensions["A"].width = 20
+        pair_sheet.column_dimensions["B"].width = 48
+        pair_sheet.column_dimensions["C"].width = 48
+        pair_sheet.column_dimensions["D"].width = 14
+        self.__excel_styler.style_note_sheet(pair_sheet, pair_sheet.max_row, 4)
+        return workbook
+
+
+    def build_query_workbook(self, job: dict[str, Any], query: dict[str, Any]) -> Workbook:
+        columns = query["columns"]
+        rows = query["rows"]
+        total_columns = len(columns) + 1
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "查詢結果"
+        table = [
+            [f"合併結果－作物查詢：{query['crop']}"] + [None] * (total_columns - 1),
+            ["統計指標"] + [column["majorCategory"] for column in columns],
+            [None] + [column["year"] for column in columns],
+            [None] + [column["crop"] for column in columns],
+        ]
+        table.extend([[row["metric"]] + row["values"] for row in rows])
+        for row in table:
+            sheet.append(row)
+        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
+        sheet.merge_cells(start_row=2, start_column=1, end_row=4, end_column=1)
+        self._merge_header_cells(sheet, 2, [column["majorCategory"] for column in columns])
+        self._merge_header_cells(sheet, 3, [column["year"] for column in columns])
+        self.__excel_styler.apply_table_style(sheet, len(table), total_columns)
+
+        condition = workbook.create_sheet("查詢條件")
+        conditions = [
+            ["項目", "內容"],
+            ["查詢作物", query["crop"]],
+            ["下載時間", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+            ["來源", "來自目前已合併資料"],
+            ["欄位篩選", "僅保留所選作物欄位"],
+            ["列篩選", "僅保留至少一個非空值的統計指標列"],
+        ]
+        for row in conditions:
+            condition.append(row)
+        self.__excel_styler.style_note_sheet(condition, len(conditions))
+        return workbook
+
+
+    def _workbook_bytes(self, workbook: Workbook) -> io.ByteIO:
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        return output
