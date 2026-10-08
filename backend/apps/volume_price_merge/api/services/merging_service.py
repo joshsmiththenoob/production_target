@@ -19,7 +19,7 @@ class MergingService:
     def __init__(self):
         self.__work_book_reader = WorkbookReader()
         self.__excel_handler = ExcelHandler()
-        self.__RE_handler = REHandler
+        self.__RE_handler = REHandler()
 
 
     def run(self, public_id: UUID) -> dict[str, Any]:
@@ -228,8 +228,20 @@ class MergingService:
             # self.__excel_handler.build_query_workbook()
         else:
             # otherwise, we'll download workbhook of whole merged result in DB
-            workbook = self.__excel_handler.build_workbook(merge_job.result_data, merge_job.pairing_preview, source_file_count= source_file_count)
-            print(workbook)
+            workbook_result_bytes = self.__excel_handler.build_workbook(merge_job.result_data, merge_job.pairing_preview, source_file_count= source_file_count)
+
+
+        # Set download file information
+        # download time: need to use local time instead of UTC time. 
+        # timezone.now() -> UTC time; localtime() -> local time base on settings ex: Taipiei
+        date_prefix = self.__RE_handler.format_roc_date(timezone.localdate())
+        file_name = date_prefix + f"合併結果_{product}.xlsx" if product else "合併結果.xlsx" 
+        
+
+        return {
+            "file_name": self.__RE_handler.safe_filename(file_name),
+            "file_buffer": workbook_result_bytes,
+        }
 
 
 

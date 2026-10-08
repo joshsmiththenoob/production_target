@@ -4,7 +4,7 @@ In charge of processing any string though regular expressions.
 import re
 from typing import Any
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 
 class REHandler():
@@ -31,3 +31,8 @@ class REHandler():
         cleaned = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "", self.text(value))
         cleaned = re.sub(r"\s+", "", cleaned)[:80]
         return cleaned
+
+
+    def format_roc_date(self, value: date) ->str:
+        roc_year = value.year - 1911
+        return f"{roc_year:03d}.{value.month:02d}.{value.day:02d}"

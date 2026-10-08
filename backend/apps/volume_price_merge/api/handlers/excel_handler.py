@@ -273,7 +273,7 @@ class ExcelHandler:
             ["項目", "內容"],
             ["合併主鍵", "左側以統計指標保留並對齊；欄位唯一鍵為大項 + 年度 + 作物。"],
             ["來源檔案數", source_file_count],
-            ["完整大項", "、".join(pair["majorCategory"] for pair in pairing_preview["pairs"])],
+            ["完整大項", "、".join(pair["major_category"] for pair in pairing_preview["pairs"] if pair["complete"])],
             ["保留方式", "重複統計指標與重複值全部保留，不去重；同一列多值以 / 串接。"],
         ]
         for row in source_rows:
@@ -282,19 +282,19 @@ class ExcelHandler:
 
         pair_sheet = workbook.create_sheet("配對結果")
         pair_sheet.append(["大項", "產量及產值檔案", "種植及收穫面積檔案", "結果"])
-        for pair in validation["complete"] + validation["incomplete"]:
+        for pair in pairing_preview["pairs"]:
             pair_sheet.append([
                 pair["major_category"],
-                "\n".join(item["fileName"] for item in pair["production"]) or "缺少",
-                "\n".join(item["fileName"] for item in pair["area"]) or "缺少",
-                "完整" if pair["production"] and pair["area"] else "不完整",
+                "\n".join(pair["production_files"]) or "缺少",
+                "\n".join( pair["area_files"]) or "缺少",
+                "完整" if pair["production_files"] and pair["area_files"] else "不完整",
             ])
         pair_sheet.column_dimensions["A"].width = 20
         pair_sheet.column_dimensions["B"].width = 48
         pair_sheet.column_dimensions["C"].width = 48
         pair_sheet.column_dimensions["D"].width = 14
         self.__excel_styler.style_note_sheet(pair_sheet, pair_sheet.max_row, 4)
-        return workbook
+        return self._workbook_bytes(workbook)
 
 
     def build_query_workbook(self, query: dict[str, Any]) -> Workbook:
@@ -331,7 +331,7 @@ class ExcelHandler:
         for row in conditions:
             condition.append(row)
         self.__excel_styler.style_note_sheet(condition, len(conditions))
-        return workbook
+        return self._workbook_bytes(workbook)
 
 
     def _workbook_bytes(self, workbook: Workbook) -> io.BytesIO:
