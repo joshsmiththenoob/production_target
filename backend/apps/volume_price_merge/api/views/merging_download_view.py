@@ -14,6 +14,11 @@ from apps.jobs.models import Job
 from apps.volume_price_merge.api.serializers.merging_download_serializer import (
     MergeDownloadRequestSerializer
 )
+from apps.volume_price_merge.api.serializers.merging_serializer import(
+    MergingSummaryResponseSerializer,
+)
+
+
 from apps.volume_price_merge.api.services.merging_service import (
     MergeJobExpired,
     MergeJobNotInStatus,
@@ -31,9 +36,11 @@ class MergingDownloadView(APIView):
     
     @extend_schema(
         summary="執行生產量值整併(下載測試)",
-        request=None,
+        # # request payload
+        # request= None,
+        parameters= [MergeDownloadRequestSerializer],
         responses={
-            200: MergeDownloadRequestSerializer,
+            200: MergingSummaryResponseSerializer,
             404: ErrorResponseSerializer,
             409: ErrorResponseSerializer,
             410: ErrorResponseSerializer,
@@ -44,12 +51,17 @@ class MergingDownloadView(APIView):
 
 
     def get(self, request: Request, public_id: UUID) -> Response:
-        # Create the merged result of specialized job
-        # Don't need intput serailizer cause dynamic URL parameter
-        # help us to check data type from client (React)
+
+        # Input Serializer help us to check query parameters in url from client (React)
         
+        # Parse query parameters with serializer
+        input_serializer = MergeDownloadRequestSerializer(data= request.query_params)
+        input_serializer.is_valid(raise_exception= True)
+
+        print(input_serializer.validated_data)
+
         merging_service = MergingService()
-        result = merging_service.run(public_id)
+        merging_service.get_workbook(public_id, input_serializer.validated_data["product"])
         # output_serializer = MergingSummaryDataSerializer(data=result)
         # output_serializer.is_valid(raise_exception= True)
 

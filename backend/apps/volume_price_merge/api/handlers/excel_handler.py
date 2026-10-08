@@ -246,32 +246,34 @@ class ExcelHandler:
             start = end + 1
 
 
-    def build_workbook(self, all_sources: list[dict[str, Any]], column_order: list[dict[str, str]], merged_rows: list[dict[str, Any]], validation: dict[str, Any]) -> Workbook:
+    def build_workbook(self, result_data: dict[str, Any], pairing_preview: dict[str, Any], *, source_file_count: int) -> Workbook:
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "合併結果"
-        total_columns = len(column_order) + 1
+        columns = result_data["columns"]
+        merged_rows = result_data["rows"]
+        total_columns = len(columns) + 1
         rows = [
             ["合併結果"] + [None] * (total_columns - 1),
-            ["統計指標"] + [column["year"] for column in column_order],
-            [None] + [column["majorCategory"] for column in column_order],
-            [None] + [column["crop"] for column in column_order],
+            ["統計指標"] + [column["year"] for column in columns],
+            [None] + [column["major_category"] for column in columns],
+            [None] + [column["crop"] for column in columns],
         ]
         rows.extend([[row["metric"]] + row["values"] for row in merged_rows])
         for row in rows:
             sheet.append(row)
         sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
         sheet.merge_cells(start_row=2, start_column=1, end_row=4, end_column=1)
-        self._merge_header_cells(sheet, 2, [column["year"] for column in column_order])
-        self._merge_header_cells(sheet, 3, [column["majorCategory"] for column in column_order])
+        self._merge_header_cells(sheet, 2, [column["year"] for column in columns])
+        self._merge_header_cells(sheet, 3, [column["major_category"] for column in columns])
         self.__excel_styler.apply_table_style(sheet, len(rows), total_columns)
 
         source_sheet = workbook.create_sheet("來源說明")
         source_rows = [
             ["項目", "內容"],
             ["合併主鍵", "左側以統計指標保留並對齊；欄位唯一鍵為大項 + 年度 + 作物。"],
-            ["來源檔案數", len(all_sources)],
-            ["完整大項", "、".join(pair["majorCategory"] for pair in validation["complete"])],
+            ["來源檔案數", source_file_count],
+            ["完整大項", "、".join(pair["majorCategory"] for pair in pairing_preview["pairs"])],
             ["保留方式", "重複統計指標與重複值全部保留，不去重；同一列多值以 / 串接。"],
         ]
         for row in source_rows:
@@ -282,7 +284,7 @@ class ExcelHandler:
         pair_sheet.append(["大項", "產量及產值檔案", "種植及收穫面積檔案", "結果"])
         for pair in validation["complete"] + validation["incomplete"]:
             pair_sheet.append([
-                pair["majorCategory"],
+                pair["major_category"],
                 "\n".join(item["fileName"] for item in pair["production"]) or "缺少",
                 "\n".join(item["fileName"] for item in pair["area"]) or "缺少",
                 "完整" if pair["production"] and pair["area"] else "不完整",
@@ -295,7 +297,7 @@ class ExcelHandler:
         return workbook
 
 
-    def build_query_workbook(self, job: dict[str, Any], query: dict[str, Any]) -> Workbook:
+    def build_query_workbook(self, query: dict[str, Any]) -> Workbook:
         columns = query["columns"]
         rows = query["rows"]
         total_columns = len(columns) + 1
@@ -332,7 +334,7 @@ class ExcelHandler:
         return workbook
 
 
-    def _workbook_bytes(self, workbook: Workbook) -> io.ByteIO:
+    def _workbook_bytes(self, workbook: Workbook) -> io.BytesIO:
         output = io.BytesIO()
         workbook.save(output)
         output.seek(0)
