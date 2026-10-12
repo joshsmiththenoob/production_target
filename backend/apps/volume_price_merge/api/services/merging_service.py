@@ -235,8 +235,9 @@ class MergingService:
         # download time: need to use local time instead of UTC time. 
         # timezone.now() -> UTC time; localtime() -> local time base on settings ex: Taipiei
         date_prefix = self.__RE_handler.format_roc_date(timezone.localdate())
-        file_name = date_prefix + f"合併結果_{product}.xlsx" if product else "合併結果.xlsx" 
-        
+        file_name = f"合併結果_{product}.xlsx" if product else "合併結果.xlsx" 
+        file_name = date_prefix + file_name
+    
 
         return {
             "file_name": self.__RE_handler.safe_filename(file_name),
