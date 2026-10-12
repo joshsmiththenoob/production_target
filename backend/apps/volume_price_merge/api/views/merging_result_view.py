@@ -8,6 +8,9 @@ from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
+
 
 from apps.jobs.models import Job
 from apps.volume_price_merge.api.serializers.merging_result_serializer import (
@@ -30,7 +33,7 @@ from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
 
 # Create your views here.
-
+@method_decorator(never_cache, name="dispatch")
 class MergingResultView(APIView):
     authentication_classes: list[type] = []
     permission_classes: list[type] = []
@@ -54,7 +57,7 @@ class MergingResultView(APIView):
         """
         Get the existed merged result of specific job filtered by specific product from client.
         """
-        
+        print(request.query_params)
         try:
             # Parse query parameters with serializer
             input_serializer = MergeResultRequestSerializer(data= request.query_params)
@@ -63,7 +66,6 @@ class MergingResultView(APIView):
             query_result = merging_service.query_by_product(public_id, input_serializer.validated_data["product"])
             output_serializer = MergeResultDataSerializer(data=query_result)
             output_serializer.is_valid(raise_exception= True)
-            print(output_serializer.is_valid())
 
             return ResponseFormatter.success_response(
                     data=output_serializer.data,

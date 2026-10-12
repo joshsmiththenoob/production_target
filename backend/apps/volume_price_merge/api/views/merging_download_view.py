@@ -10,8 +10,11 @@ from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.negotiation import DefaultContentNegotiation
+from rest_framework.renderers import JSONRenderer
 from django.http import FileResponse
-
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 
 
 from apps.jobs.models import Job
@@ -30,8 +33,6 @@ from apps.volume_price_merge.api.services.merging_service import (
 )
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
-from rest_framework.negotiation import DefaultContentNegotiation
-from rest_framework.renderers import JSONRenderer
 
 
 class DownloadContentNegotiation(DefaultContentNegotiation):
@@ -44,6 +45,7 @@ class DownloadContentNegotiation(DefaultContentNegotiation):
 
 
 # Create your views here.
+@method_decorator(never_cache, name="dispatch")
 class MergingDownloadView(APIView):
     authentication_classes: list[type] = []
     permission_classes: list[type] = []
@@ -69,69 +71,54 @@ class MergingDownloadView(APIView):
         },
         tags=["Volume Price Merge"],
     )
-
-
     def get(self, request: Request, public_id: UUID) -> Response:
-
+        print(
+            "DOWNLOAD:",
+            request.get_full_path(),
+            request.query_params,
+            flush=True,
+        )
         # Input Serializer help us to check query parameters in url from client (React)
         
         # Parse query parameters with serializer
+        print("public_id: ", public_id)
+        print(request.query_params)
         input_serializer = MergingDownloadRequestSerializer(data= request.query_params)
         input_serializer.is_valid(raise_exception= True)
 
         print(input_serializer.validated_data)
+        try:
+            merging_service = MergingService()
+            result = merging_service.get_workbook(public_id, input_serializer.validated_data["product"])
+            
+            return FileResponse(result["file_buffer"], as_attachment= True, filename=result["file_name"], content_type = self.XLSX_TYPE)
 
-        merging_service = MergingService()
-        result = merging_service.get_workbook(public_id, input_serializer.validated_data["product"])
-        
-        return FileResponse(result["file_buffer"], as_attachment= True, filename=result["file_name"], content_type = self.XLSX_TYPE)
-        
-        # output_serializer = MergingSummaryDataSerializer(data=result)
-        # output_serializer.is_valid(raise_exception= True)
+        except Job.DoesNotExist:
+            return ResponseFormatter.error_response(
+                    code= "job_not_found",
+                    http_status= status.HTTP_404_NOT_FOUND,
+                    message= "找不到指定的工作。",
+                )
 
-        # file_response = FileResponse(
-        #             output,
-        #             as_attachment=True,
-        #             filename=filename,
-        #             content_type=(
-        #                 "application/vnd.openxmlformats-officedocument."
-        #                 "spreadsheetml.sheet"
-        #                 ),
-        #             )
+        except MergeJobExpired:
+            return ResponseFormatter.error_response(
+                    code= "job_expired",
+                    http_status= status.HTTP_410_GONE,
+                    message= "工作已過期，請重新上傳檔案。",
+                )
 
+        except MergeJobNotInStatus:
+            return ResponseFormatter.error_response(
+                    code= "job_not_runnable",
+                    http_status= status.HTTP_409_CONFLICT,
+                    message= "目前的工作狀態無法執行合併。",
+                )
 
-        #     return ResponseFormatter.success_response(
-        #             data=output_serializer.data,
-        #             http_status= status.HTTP_200_OK,
-        #             message= "合併完成。",
-
-        #     )
-
-        # except Job.DoesNotExist:
-        #     return ResponseFormatter.error_response(
-        #             code= "job_not_found",
-        #             http_status= status.HTTP_404_NOT_FOUND,
-        #             message= "找不到指定的工作。",
-        #         )
-
-        # except MergeJobExpired:
-        #     return ResponseFormatter.error_response(
-        #             code= "job_expired",
-        #             http_status= status.HTTP_410_GONE,
-        #             message= "工作已過期，請重新上傳檔案。",
-        #         )
-
-        # except MergeJobNotInStatus:
-        #     return ResponseFormatter.error_response(
-        #             code= "job_not_runnable",
-        #             http_status= status.HTTP_409_CONFLICT,
-        #             message= "目前的工作狀態無法執行合併。",
-        #         )
-
-        # except Exception:
-        #     return ResponseFormatter.error_response(
-        #             code= "internal_server_error",
-        #             http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #             message= "合併處理失敗，請稍後再試。",
-        #         )
+        except Exception as e:
+            print(e)
+            return ResponseFormatter.error_response(
+                    code= "internal_server_error",
+                    http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    message= "下載處理失敗，請稍後再試。",
+                )
 

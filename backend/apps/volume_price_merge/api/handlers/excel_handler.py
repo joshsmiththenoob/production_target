@@ -246,7 +246,7 @@ class ExcelHandler:
             start = end + 1
 
 
-    def build_workbook(self, result_data: dict[str, Any], pairing_preview: dict[str, Any], *, source_file_count: int) -> Workbook:
+    def build_workbook(self, result_data: dict[str, Any], pairing_preview: dict[str, Any], *, source_file_count: int) -> io.BytesIO:
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "合併結果"
@@ -297,32 +297,35 @@ class ExcelHandler:
         return self._workbook_bytes(workbook)
 
 
-    def build_query_workbook(self, query: dict[str, Any]) -> Workbook:
-        columns = query["columns"]
-        rows = query["rows"]
-        total_columns = len(columns) + 1
+    def build_query_workbook(self, result_data: dict[str, Any]) -> io.BytesIO:
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "查詢結果"
+        # Get info of query result
+        product = result_data["product"]
+        columns = result_data["columns"]
+        merged_rows = result_data["rows"]
+        total_columns = len(columns) + 1
+
         table = [
-            [f"合併結果－作物查詢：{query['crop']}"] + [None] * (total_columns - 1),
-            ["統計指標"] + [column["majorCategory"] for column in columns],
+            [f"合併結果－作物查詢：{product}"] + [None] * (total_columns - 1),
+            ["統計指標"] + [column["major_category"] for column in columns],
             [None] + [column["year"] for column in columns],
             [None] + [column["crop"] for column in columns],
         ]
-        table.extend([[row["metric"]] + row["values"] for row in rows])
+        table.extend([[row["metric"]] + row["values"] for row in merged_rows])
         for row in table:
             sheet.append(row)
         sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
         sheet.merge_cells(start_row=2, start_column=1, end_row=4, end_column=1)
-        self._merge_header_cells(sheet, 2, [column["majorCategory"] for column in columns])
+        self._merge_header_cells(sheet, 2, [column["major_category"] for column in columns])
         self._merge_header_cells(sheet, 3, [column["year"] for column in columns])
         self.__excel_styler.apply_table_style(sheet, len(table), total_columns)
 
         condition = workbook.create_sheet("查詢條件")
         conditions = [
             ["項目", "內容"],
-            ["查詢作物", query["crop"]],
+            ["查詢作物", product],
             ["下載時間", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
             ["來源", "來自目前已合併資料"],
             ["欄位篩選", "僅保留所選作物欄位"],

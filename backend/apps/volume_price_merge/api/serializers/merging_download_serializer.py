@@ -5,7 +5,7 @@ from apps.jobs.models import Job
 
 
 class MergingDownloadRequestSerializer(serializers.Serializer):
-    product = serializers.CharField(required= False, default= '')
+    product = serializers.CharField(default= '')
 
 
 # class MergingDownloadSerializer(serializers.Serializer):

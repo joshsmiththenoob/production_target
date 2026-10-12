@@ -216,16 +216,22 @@ class MergingService:
         """
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED)
+        print(job)
         # Get MergeJob for accessing result data 
         merge_job = VolumePriceMergeJob.objects.get(job_id=job.pk)
         # Then track to all input files of specific MergeJob to obtain information of input file
         source_file_count = MergeInputFile.objects.filter(merge_job=merge_job,).count()
 
 
+        workbook_result_bytes = None
         # Check if there is query condition for product or not
         if product:
-            pass
-            # self.__excel_handler.build_query_workbook()
+            # If there's product for filter -> we'll download workbhook of whole merged result in DB
+            # Need to find query filter first.
+            query_result = self.__excel_handler.filter_by_product(merge_job.result_data, product)
+            print(query_result)
+            # Then set the work book for query result.
+            workbook_result_bytes = self.__excel_handler.build_query_workbook(query_result)
         else:
             # otherwise, we'll download workbhook of whole merged result in DB
             workbook_result_bytes = self.__excel_handler.build_workbook(merge_job.result_data, merge_job.pairing_preview, source_file_count= source_file_count)
@@ -242,7 +248,6 @@ class MergingService:
             "file_name": self.__RE_handler.safe_filename(file_name),
             "file_buffer": workbook_result_bytes,
         }
-
 
 
 # Custom Error Exception: We can create custom Error to maintain the error except default Python Error
