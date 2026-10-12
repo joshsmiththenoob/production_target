@@ -28,8 +28,39 @@ export interface CompletedMergeJob {
   summary: MergeSummary
 }
 
+export type MergeResultValue = number | string | null
+
+export interface MergeResultColumn {
+  key: string
+  major_category: string
+  year: string
+  crop: string
+}
+
+export interface MergeResultRow {
+  metric: string
+  values: MergeResultValue[]
+}
+
+export interface MergeQueryResult {
+  product: string
+  columns: MergeResultColumn[]
+  rows: MergeResultRow[]
+}
+
+export interface QueriedMergeJob {
+  public_id: string
+  query_result: MergeQueryResult
+}
+
+export interface DownloadedWorkbook {
+  blob: Blob
+  filename: string
+}
+
 interface ErrorResponse {
   code: string
+  message?: string
   field_errors: unknown
 }
 
@@ -105,6 +136,56 @@ function isMergeSuccessResponse(value: unknown): value is { data: CompletedMerge
   return isRecord(value) && isCompletedMergeJob(value.data)
 }
 
+function isMergeResultValue(value: unknown): value is MergeResultValue {
+  return value === null || typeof value === 'string' || (
+    typeof value === 'number' && Number.isFinite(value)
+  )
+}
+
+function isMergeResultColumn(value: unknown): value is MergeResultColumn {
+  return (
+    isRecord(value) &&
+    typeof value.key === 'string' &&
+    typeof value.major_category === 'string' &&
+    typeof value.year === 'string' &&
+    typeof value.crop === 'string'
+  )
+}
+
+function isMergeQueryResult(value: unknown): value is MergeQueryResult {
+  if (
+    !isRecord(value) ||
+    typeof value.product !== 'string' ||
+    !Array.isArray(value.columns) ||
+    !value.columns.every(isMergeResultColumn) ||
+    !Array.isArray(value.rows)
+  ) {
+    return false
+  }
+
+  const columns = value.columns
+  const rows = value.rows
+  return rows.every((row) => (
+    isRecord(row) &&
+    typeof row.metric === 'string' &&
+    Array.isArray(row.values) &&
+    row.values.length === columns.length &&
+    row.values.every(isMergeResultValue)
+  ))
+}
+
+function isQueriedMergeJob(value: unknown): value is QueriedMergeJob {
+  return (
+    isRecord(value) &&
+    typeof value.public_id === 'string' &&
+    isMergeQueryResult(value.query_result)
+  )
+}
+
+function isQuerySuccessResponse(value: unknown): value is { data: QueriedMergeJob } {
+  return isRecord(value) && isQueriedMergeJob(value.data)
+}
+
 function isErrorResponse(value: unknown): value is ErrorResponse {
   return isRecord(value) && typeof value.code === 'string' && 'field_errors' in value
 }
@@ -157,6 +238,79 @@ export class MergeApiError extends Error {
     this.code = code
     this.resultIsUnknown = resultIsUnknown
   }
+}
+
+function getResultErrorMessage(code: string): string {
+  if (code === 'invalid_product') return '查詢條件無效，請重新選擇作物。'
+  if (code === 'job_not_found') return '找不到這筆整併工作，請重新開始建立工作。'
+  if (code === 'job_expired') return '這筆整併工作已過期，請重新開始建立工作。'
+  if (code === 'job_not_successful' || code === 'job_not_runnable') {
+    return '這筆工作目前無法讀取結果，請重新開始建立工作。'
+  }
+  if (code === 'invalid_response') return '伺服器回傳的結果格式不正確，請稍後重試。'
+  return '目前無法取得整併結果，請稍後重試。'
+}
+
+export class ResultApiError extends Error {
+  readonly code: string
+  readonly jobUnavailable: boolean
+
+  constructor(code: string, message?: string) {
+    super(message ?? getResultErrorMessage(code))
+    this.name = 'ResultApiError'
+    this.code = code
+    this.jobUnavailable = ['job_not_found', 'job_expired', 'job_not_successful', 'job_not_runnable'].includes(code)
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+async function readErrorResponse(response: Response): Promise<ErrorResponse | null> {
+  try {
+    const payload: unknown = await response.json()
+    return isErrorResponse(payload) ? payload : null
+  } catch {
+    return null
+  }
+}
+
+function safeWorkbookFilename(contentDisposition: string | null): string {
+  let candidate: string | null = null
+
+  if (contentDisposition) {
+    const extendedMatch = contentDisposition.match(/filename\*\s*=\s*([^;]+)/i)
+    if (extendedMatch) {
+      const rawValue = extendedMatch[1].trim().replace(/^"|"$/g, '')
+      const encodedValue = rawValue.match(/^UTF-8'[^']*'(.*)$/i)?.[1] ?? rawValue
+      try {
+        candidate = decodeURIComponent(encodedValue)
+      } catch {
+        candidate = null
+      }
+    }
+
+    if (!candidate) {
+      const filenameMatch = contentDisposition.match(/filename\s*=\s*(?:"([^"]+)"|([^;]+))/i)
+      candidate = filenameMatch?.[1] ?? filenameMatch?.[2]?.trim() ?? null
+    }
+  }
+
+  const safeName = candidate
+    ?.split(/[\\/]/)
+    .pop()
+    ?.split('')
+    .filter((character) => {
+      const codePoint = character.charCodeAt(0)
+      return codePoint >= 32 && codePoint !== 127
+    })
+    .join('')
+    .trim()
+
+  return safeName && safeName.toLowerCase().endsWith('.xlsx')
+    ? safeName
+    : 'production-target-result.xlsx'
 }
 
 export async function createPairingPreview(
@@ -238,4 +392,75 @@ export async function runVolumePriceMerge(publicId: string): Promise<CompletedMe
     '伺服器尚未回傳可確認的整併結果，請勿直接重送同一工作。',
     true,
   )
+}
+
+export async function queryVolumePriceMergeResult(
+  publicId: string,
+  product: string,
+  signal?: AbortSignal,
+): Promise<QueriedMergeJob> {
+  const searchParams = new URLSearchParams({ product })
+  const url = `/api/v1/price-volume-merge/jobs/${encodeURIComponent(publicId)}/result/?${searchParams.toString()}`
+
+  let response: Response
+  try {
+    response = await fetch(url, { method: 'GET', cache: 'no-store', signal })
+  } catch (error: unknown) {
+    if (isAbortError(error)) throw error
+    throw new ResultApiError('network_error')
+  }
+
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch {
+    throw new ResultApiError('invalid_response')
+  }
+
+  if (response.status === 200 && isQuerySuccessResponse(payload)) {
+    if (payload.data.public_id !== publicId || payload.data.query_result.product !== product) {
+      throw new ResultApiError('invalid_response')
+    }
+    return payload.data
+  }
+
+  if (!response.ok && isErrorResponse(payload)) {
+    throw new ResultApiError(payload.code)
+  }
+
+  throw new ResultApiError('invalid_response')
+}
+
+export async function downloadVolumePriceMergeResult(
+  publicId: string,
+  product?: string,
+  signal?: AbortSignal,
+): Promise<DownloadedWorkbook> {
+  const searchParams = new URLSearchParams()
+  if (product) searchParams.set('product', product)
+  const queryString = searchParams.toString()
+  const url = `/api/v1/price-volume-merge/jobs/${encodeURIComponent(publicId)}/download/${queryString ? `?${queryString}` : ''}`
+
+  let response: Response
+  try {
+    response = await fetch(url, { method: 'GET', cache: 'no-store', signal })
+  } catch (error: unknown) {
+    if (isAbortError(error)) throw error
+    throw new ResultApiError('network_error')
+  }
+
+  if (!response.ok) {
+    const errorPayload = await readErrorResponse(response)
+    throw new ResultApiError(errorPayload?.code ?? 'invalid_response')
+  }
+
+  const contentType = response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()
+  if (response.status !== 200 || contentType !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+    throw new ResultApiError('invalid_response')
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: safeWorkbookFilename(response.headers.get('Content-Disposition')),
+  }
 }

@@ -1,11 +1,7 @@
 from rest_framework import serializers
 
-from apps.jobs.models import Job
-
-
-
 class MergingDownloadRequestSerializer(serializers.Serializer):
-    product = serializers.CharField(default= '')
+    product = serializers.CharField(default="", allow_blank=True, trim_whitespace=True)
 
 
 # class MergingDownloadSerializer(serializers.Serializer):

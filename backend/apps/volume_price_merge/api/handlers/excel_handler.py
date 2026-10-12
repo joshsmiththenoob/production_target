@@ -10,6 +10,12 @@ from openpyxl import Workbook
 
 
 from .re_handler import REHandler
+
+
+class ProductNotFoundError(ValueError):
+    """Raised when a requested crop is not present in a stored merge result."""
+
+    pass
 from .excel_styler import ExcelStyler
 
 
@@ -214,7 +220,9 @@ class ExcelHandler:
         
         matched = [(index, column) for index, column in enumerate(result_data["columns"]) if column["crop"] == product]
         if not matched:
-           raise ValueError(f"Invalid product name 「{product}」 in result of job. -> Can't find this product")
+            raise ProductNotFoundError(
+                f"Invalid product name 「{product}」 in result of job."
+            )
 
         
         result_rows = []
@@ -224,10 +232,6 @@ class ExcelHandler:
                 result_rows.append({"metric": row["metric"], "values": values})
 
 
-        if not result_rows:
-            raise ValueError(f"Invalid「{product}」data in this result of job")
-
-        
         return {
                 "product": product, 
                 "columns": [column for _index, column in matched], 

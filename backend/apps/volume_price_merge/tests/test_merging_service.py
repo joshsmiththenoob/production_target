@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.jobs.models import Job
 from apps.volume_price_merge.api.services.merging_service import (
     MergeJobExpired,
-    MergeJobNotRunnable,
+    MergeJobNotInStatus,
     MergingService,
 )
 from apps.volume_price_merge.models import MergeInputFile, VolumePriceMergeJob
@@ -125,7 +125,7 @@ class MergingServiceTests(TestCase):
             with_inputs=False,
         )
 
-        with self.assertRaises(MergeJobNotRunnable):
+        with self.assertRaises(MergeJobNotInStatus):
             MergingService().run(job.public_id)
 
         job.refresh_from_db()

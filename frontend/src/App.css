@@ -1058,6 +1058,183 @@ button:hover {
   color: var(--color-text-muted);
 }
 
+.merge-query,
+.merge-download {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.merge-query h3,
+.merge-download h3,
+.merge-query-result h3 {
+  font-size: 1.15rem;
+}
+
+.merge-query__controls {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 22rem) auto;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.merge-query__controls label {
+  font-weight: 700;
+}
+
+.merge-query__controls select {
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.merge-query__controls select:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.merge-query__controls select:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--color-focus-text);
+}
+
+.merge-query__status,
+.merge-download__status,
+.merge-download__success,
+.merge-query__empty {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+}
+
+.merge-query__error,
+.merge-download__error {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border-left: 0.3rem solid var(--color-error);
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  font-weight: 700;
+}
+
+.merge-download__success {
+  color: var(--color-success);
+  font-weight: 700;
+}
+
+.merge-query-result {
+  margin-top: var(--space-5);
+}
+
+.merge-query-result > p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+.merge-query-result__table-scroll {
+  max-width: 100%;
+  margin-top: var(--space-4);
+  overflow-x: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.merge-query-result__table-scroll:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--color-focus-text);
+}
+
+.merge-query-result table {
+  width: 100%;
+  min-width: 44rem;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.merge-query-result caption {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+  font-weight: 700;
+  text-align: left;
+}
+
+.merge-query-result th,
+.merge-query-result td {
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.merge-query-result th:last-child,
+.merge-query-result td:last-child {
+  border-right: 0;
+}
+
+.merge-query-result thead th,
+.merge-query-result tbody th {
+  background: var(--color-surface-muted);
+}
+
+.merge-query-result thead th span {
+  display: block;
+  white-space: nowrap;
+}
+
+.merge-query-result thead th span + span {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.merge-query-result tbody th {
+  min-width: 11rem;
+}
+
+.merge-download__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.merge-query__controls button:disabled,
+.merge-query__controls button:disabled:hover,
+.merge-download__actions button:disabled,
+.merge-download__actions button:disabled:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 1;
+  text-decoration: none;
+}
+
+.merge-download > p {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+}
+
+.merge-result__unavailable {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border-left: 0.35rem solid var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.merge-result__unavailable p {
+  margin: var(--space-1) 0 0;
+}
+
 .file-preparation {
   padding: var(--space-5);
   border: 1px solid var(--color-border);
@@ -1236,6 +1413,16 @@ button:hover {
 
   .merge-result__summary {
     grid-template-columns: 1fr;
+  }
+
+  .merge-query__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .merge-query__controls button,
+  .merge-download__actions,
+  .merge-download__actions button {
+    width: 100%;
   }
 
   .placeholder {

@@ -18,11 +18,6 @@ from apps.volume_price_merge.api.serializers.merging_result_serializer import (
     MergeResultDataSerializer,
     MergeResultResponseSerializer,
 )
-from apps.volume_price_merge.api.serializers.merging_serializer import(
-    MergingSummaryResponseSerializer,
-)
-
-
 from apps.volume_price_merge.api.services.merging_service import (
     MergeJobExpired,
     MergeJobNotInStatus,
@@ -46,6 +41,7 @@ class MergingResultView(APIView):
         parameters=[MergeResultRequestSerializer],
         responses={
             200: MergeResultResponseSerializer,
+            400: ErrorResponseSerializer,
             404: ErrorResponseSerializer,
             409: ErrorResponseSerializer,
             410: ErrorResponseSerializer,
@@ -57,11 +53,16 @@ class MergingResultView(APIView):
         """
         Get the existed merged result of specific job filtered by specific product from client.
         """
-        print(request.query_params)
+        input_serializer = MergeResultRequestSerializer(data=request.query_params)
+        if not input_serializer.is_valid():
+            return ResponseFormatter.error_response(
+                code="invalid_product",
+                http_status=status.HTTP_400_BAD_REQUEST,
+                message="請選擇一個可用作物。",
+                field_errors=input_serializer.errors,
+            )
+
         try:
-            # Parse query parameters with serializer
-            input_serializer = MergeResultRequestSerializer(data= request.query_params)
-            input_serializer.is_valid(raise_exception= True)
             merging_service = MergingService()
             query_result = merging_service.query_by_product(public_id, input_serializer.validated_data["product"])
             output_serializer = MergeResultDataSerializer(data=query_result)
@@ -97,13 +98,13 @@ class MergingResultView(APIView):
 
         except MergeInputInvalid:
             return ResponseFormatter.error_response(
-                    code= "payload or parameter not insufficent.",
+                    code= "invalid_product",
                     http_status= status.HTTP_400_BAD_REQUEST,
-                    message= "查詢條件不足，請客戶填寫查詢條件",
+                    message= "找不到指定作物，請重新選擇。",
                 )
 
 
-        except Exception as e:
+        except Exception:
             return ResponseFormatter.error_response(
                     code= "internal_server_error",
                     http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,

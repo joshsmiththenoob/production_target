@@ -336,8 +336,11 @@ describe('application routes', () => {
     expect(screen.getByText('統計指標列數').parentElement).toHaveTextContent('統計指標列數4')
     expect(screen.getByText('香蕉')).toBeInTheDocument()
     expect(screen.getByText('鳳梨')).toBeInTheDocument()
-    expect(screen.getByText('查詢與 Excel 下載尚未提供')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /下載|查詢/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '作物' })).toHaveValue('')
+    expect(screen.getByRole('button', { name: '查詢' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '下載全部合併結果' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '下載此作物查詢結果' })).toBeDisabled()
+    expect(screen.queryByText('查詢與 Excel 下載尚未提供')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '重新開始' })).toBeInTheDocument()
 
     const steps = within(screen.getByRole('list', { name: '果品整併工作流程' })).getAllByRole('listitem')

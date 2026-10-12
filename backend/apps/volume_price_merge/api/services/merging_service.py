@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.jobs.models import Job
 
 from ...models import MergeInputFile, VolumePriceMergeJob
-from ..handlers.excel_handler import ExcelHandler
+from ..handlers.excel_handler import ExcelHandler, ProductNotFoundError
 from ..handlers.workbook_reader import WorkbookReader
 from ..handlers.re_handler import REHandler
 
@@ -147,7 +147,7 @@ class MergingService:
     #     return job
 
 
-    def _claim_job(self, public_id: UUID, status= Job.Status.choices):
+    def _claim_job(self, public_id: UUID, required_status: str) -> Job:
         """
         Get pending job
         then modify its status depends on expiration date etc.
@@ -165,11 +165,11 @@ class MergingService:
                 job.status = Job.Status.EXPIRED
                 job.save(update_fields=["status", "updated_at"])
                 job_error = MergeJobExpired()
-            elif job.status != status:
+            elif job.status != required_status:
                 # If it's not pending job -> raise error 
                 job_error = MergeJobNotInStatus()
             else:
-                if status == Job.Status.PENDING:
+                if required_status == Job.Status.PENDING:
                     # Normal pending condition -> change to running. If it's succeeded conidtion -> do nothing.
                     job.status = Job.Status.RUNNING
                     job.save(update_fields=["status", "updated_at"])
@@ -185,16 +185,15 @@ class MergingService:
         Get the created merged result from database
         """
         # Check if product is provided by client.
-        job_error: MergeJobError | None = None
         if not product or self.__RE_handler.is_blank(product):
-            job_error = MergeInputInvalid("Doesn't select product for querying")
+            raise MergeInputInvalid("A product is required.")
         
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED)
 
         # just READ from database, so we don't need to use "with transaction.atomic()"
         merge_job = VolumePriceMergeJob.objects.get(job_id = job.pk)
-        query_result = self.__excel_handler.filter_by_product(merge_job.result_data, product)
+        query_result = self._filter_by_product(merge_job.result_data, product)
 
         # Wrap response
         query_response = {
@@ -203,9 +202,6 @@ class MergingService:
         }
 
 
-        if job_error is not None:
-            raise job_error
-        
         return query_response
 
 
@@ -216,7 +212,6 @@ class MergingService:
         """
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED)
-        print(job)
         # Get MergeJob for accessing result data 
         merge_job = VolumePriceMergeJob.objects.get(job_id=job.pk)
         # Then track to all input files of specific MergeJob to obtain information of input file
@@ -228,8 +223,7 @@ class MergingService:
         if product:
             # If there's product for filter -> we'll download workbhook of whole merged result in DB
             # Need to find query filter first.
-            query_result = self.__excel_handler.filter_by_product(merge_job.result_data, product)
-            print(query_result)
+            query_result = self._filter_by_product(merge_job.result_data, product)
             # Then set the work book for query result.
             workbook_result_bytes = self.__excel_handler.build_query_workbook(query_result)
         else:
@@ -248,6 +242,12 @@ class MergingService:
             "file_name": self.__RE_handler.safe_filename(file_name),
             "file_buffer": workbook_result_bytes,
         }
+
+    def _filter_by_product(self, result_data: dict[str, Any], product: str) -> dict[str, Any]:
+        try:
+            return self.__excel_handler.filter_by_product(result_data, product)
+        except ProductNotFoundError as error:
+            raise MergeInputInvalid("The selected product is unavailable.") from error
 
 
 # Custom Error Exception: We can create custom Error to maintain the error except default Python Error
