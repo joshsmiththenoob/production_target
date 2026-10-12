@@ -360,6 +360,37 @@ it('downloads the complete and currently displayed product workbooks without dup
   await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledTimes(2))
 })
 
+it('does not trigger a late download after the user restarts the workflow', async () => {
+  let resolveDownload!: (response: Response) => void
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(jsonResponse(201, pairingPayload))
+    .mockResolvedValueOnce(jsonResponse(200, mergePayload))
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveDownload = resolve }))
+  vi.stubGlobal('fetch', fetchMock)
+  const createObjectURL = vi.fn().mockReturnValue('blob:late-workbook')
+  const revokeObjectURL = vi.fn()
+  vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+  const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+
+  render(<MemoryRouter><VolumePriceMergePage /></MemoryRouter>)
+  await reachStepFour()
+
+  fireEvent.click(screen.getByRole('button', { name: '下載全部合併結果' }))
+  expect(await screen.findByText('正在準備完整 Excel…')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '重新開始' }))
+  await screen.findByRole('heading', { name: '1. 選擇檔案' })
+
+  const lateResponse = workbookResponse('不應下載.xlsx')
+  resolveDownload(lateResponse)
+  await waitFor(() => expect(lateResponse.blob).toHaveBeenCalledTimes(1))
+
+  expect(createObjectURL).not.toHaveBeenCalled()
+  expect(clickSpy).not.toHaveBeenCalled()
+  expect(screen.queryByText('已送出下載：不應下載.xlsx')).not.toBeInTheDocument()
+  expect(screen.getByText('果品產量及產值.xlsx')).toBeInTheDocument()
+  expect(screen.getByText('果品種植及收穫面積.xlsx')).toBeInTheDocument()
+})
+
 it('locks an expired job and keeps a restart path without turning JSON into a download', async () => {
   vi.stubGlobal('fetch', vi.fn()
     .mockResolvedValueOnce(jsonResponse(201, pairingPayload))

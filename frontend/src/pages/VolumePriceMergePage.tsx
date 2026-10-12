@@ -13,17 +13,15 @@ import { Link } from 'react-router'
 
 import {
   createPairingPreview,
-  downloadVolumePriceMergeResult,
-  type MergeQueryResult,
-  type MergeSummary,
   MergeApiError,
   PairingApiError,
-  queryVolumePriceMergeResult,
-  ResultApiError,
   runVolumePriceMerge,
-  type PairingPair,
-  type PairingResult,
 } from '../features/volumePriceMerge/api'
+import MergeQueryResultTable from '../features/volumePriceMerge/components/MergeQueryResultTable'
+import PairCard from '../features/volumePriceMerge/components/PairCard'
+import SelectedFiles from '../features/volumePriceMerge/components/SelectedFiles'
+import { useMergeResults } from '../features/volumePriceMerge/hooks/useMergeResults'
+import type { MergeSummary, PairingResult } from '../features/volumePriceMerge/types'
 
 type WorkflowStep = 'select' | 'review' | 'merge' | 'summary'
 type TransitionDirection = 1 | -1
@@ -171,55 +169,6 @@ function WorkflowPanel({
   )
 }
 
-function SelectedFiles({ files }: { files: File[] }) {
-  if (files.length === 0) {
-    return <p className="selected-files selected-files--empty">尚未選擇檔案</p>
-  }
-
-  return (
-    <ul className="selected-files" aria-label="已選擇的檔案">
-      {files.map((file, index) => (
-        <li key={`${file.name}-${file.lastModified}-${index}`}>{file.name}</li>
-      ))}
-    </ul>
-  )
-}
-
-function PairFileNames({ files, emptyText }: { files: string[]; emptyText: string }) {
-  if (files.length === 0) {
-    return <span className="pair-card__missing">{emptyText}</span>
-  }
-
-  return (
-    <ul>
-      {files.map((fileName, index) => <li key={`${fileName}-${index}`}>{fileName}</li>)}
-    </ul>
-  )
-}
-
-function PairCard({ pair }: { pair: PairingPair }) {
-  return (
-    <li className="pair-card">
-      <div className="pair-card__heading">
-        <h3>{pair.major_category}</h3>
-        <strong className={`pair-card__status pair-card__status--${pair.complete ? 'complete' : 'incomplete'}`}>
-          {pair.complete ? '配對完整' : '配對不完整'}
-        </strong>
-      </div>
-      <dl>
-        <div>
-          <dt>產量及產值</dt>
-          <dd><PairFileNames files={pair.production_files} emptyText="缺少檔案" /></dd>
-        </div>
-        <div>
-          <dt>種植及收穫面積</dt>
-          <dd><PairFileNames files={pair.area_files} emptyText="缺少檔案" /></dd>
-        </div>
-      </dl>
-    </li>
-  )
-}
-
 export default function VolumePriceMergePage() {
   const [step, setStep] = useState<WorkflowStep>('select')
   const [direction, setDirection] = useState<TransitionDirection>(1)
@@ -232,13 +181,6 @@ export default function VolumePriceMergePage() {
   const mergeHeading = useRef<HTMLHeadingElement>(null)
   const summaryHeading = useRef<HTMLHeadingElement>(null)
   const queryResultHeading = useRef<HTMLHeadingElement>(null)
-  const queryLock = useRef(false)
-  const downloadLock = useRef(false)
-  const queryRequestId = useRef(0)
-  const downloadRequestId = useRef(0)
-  const queryController = useRef<AbortController | null>(null)
-  const downloadController = useRef<AbortController | null>(null)
-  const activeObjectUrls = useRef(new Set<string>())
   const reducedMotion = useReducedMotion() === true
   const [productionFiles, setProductionFiles] = useState<File[]>([])
   const [areaFiles, setAreaFiles] = useState<File[]>([])
@@ -250,14 +192,21 @@ export default function VolumePriceMergePage() {
   const [mergeSummary, setMergeSummary] = useState<MergeSummary | null>(null)
   const [mergeError, setMergeError] = useState<MergeApiError | null>(null)
   const [isMerging, setIsMerging] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState('')
-  const [queryResult, setQueryResult] = useState<MergeQueryResult | null>(null)
-  const [isQuerying, setIsQuerying] = useState(false)
-  const [queryError, setQueryError] = useState<ResultApiError | null>(null)
-  const [downloadKind, setDownloadKind] = useState<'all' | 'product' | null>(null)
-  const [downloadError, setDownloadError] = useState<ResultApiError | null>(null)
-  const [downloadMessage, setDownloadMessage] = useState<string | null>(null)
-  const [jobUnavailable, setJobUnavailable] = useState(false)
+  const {
+    selectedProduct,
+    queryResult,
+    isQuerying,
+    queryError,
+    downloadKind,
+    downloadError,
+    downloadMessage,
+    jobUnavailable,
+    selectProduct,
+    queryProduct,
+    downloadAll,
+    downloadProduct,
+    reset: resetMergeResults,
+  } = useMergeResults(publicId)
 
   const canSubmit = productionFiles.length > 0 && areaFiles.length > 0 && !isSubmitting && !isTransitioning
   const canStartMerge = (
@@ -312,40 +261,8 @@ export default function VolumePriceMergePage() {
     if (queryResult) queryResultHeading.current?.focus()
   }, [queryResult])
 
-  useEffect(() => () => {
-    queryRequestId.current += 1
-    downloadRequestId.current += 1
-    queryController.current?.abort()
-    downloadController.current?.abort()
-    activeObjectUrls.current.forEach((url) => URL.revokeObjectURL(url))
-    activeObjectUrls.current.clear()
-  }, [])
-
-  function invalidateStepFourRequests() {
-    queryRequestId.current += 1
-    downloadRequestId.current += 1
-    queryController.current?.abort()
-    downloadController.current?.abort()
-    queryController.current = null
-    downloadController.current = null
-    queryLock.current = false
-    downloadLock.current = false
-    setIsQuerying(false)
-    setDownloadKind(null)
-  }
-
-  function clearStepFourState() {
-    invalidateStepFourRequests()
-    setSelectedProduct('')
-    setQueryResult(null)
-    setQueryError(null)
-    setDownloadError(null)
-    setDownloadMessage(null)
-    setJobUnavailable(false)
-  }
-
   function resetPreviousResult() {
-    clearStepFourState()
+    resetMergeResults()
     setStep('select')
     setPairingResult(null)
     setPublicId(null)
@@ -373,6 +290,7 @@ export default function VolumePriceMergePage() {
 
     requestLock.current = true
     setIsSubmitting(true)
+    resetMergeResults()
     setErrorMessage(null)
     setPairingResult(null)
     setPublicId(null)
@@ -412,7 +330,7 @@ export default function VolumePriceMergePage() {
     setMergePhase('processing')
     setMergeSummary(null)
     setMergeError(null)
-    clearStepFourState()
+    resetMergeResults()
 
     try {
       const result = await runVolumePriceMerge(publicId)
@@ -438,7 +356,7 @@ export default function VolumePriceMergePage() {
   function handleRestartAfterMerge() {
     if (requestLock.current || transitionLock.current) return
 
-    clearStepFourState()
+    resetMergeResults()
     changeStep('select')
     setPairingResult(null)
     setPublicId(null)
@@ -448,102 +366,7 @@ export default function VolumePriceMergePage() {
   }
 
   function handleProductChange(event: ChangeEvent<HTMLSelectElement>) {
-    queryRequestId.current += 1
-    queryController.current?.abort()
-    queryController.current = null
-    queryLock.current = false
-    setIsQuerying(false)
-    setSelectedProduct(event.currentTarget.value)
-    setQueryResult(null)
-    setQueryError(null)
-    setDownloadError(null)
-    setDownloadMessage(null)
-  }
-
-  async function handleQueryProduct() {
-    if (!publicId || !selectedProduct || queryLock.current || downloadLock.current || jobUnavailable) return
-
-    const requestId = queryRequestId.current + 1
-    queryRequestId.current = requestId
-    queryController.current?.abort()
-    const controller = new AbortController()
-    queryController.current = controller
-    queryLock.current = true
-    setIsQuerying(true)
-    setQueryResult(null)
-    setQueryError(null)
-    setDownloadError(null)
-    setDownloadMessage(null)
-
-    try {
-      const result = await queryVolumePriceMergeResult(publicId, selectedProduct, controller.signal)
-      if (queryRequestId.current !== requestId) return
-      setQueryResult(result.query_result)
-    } catch (error: unknown) {
-      if (queryRequestId.current !== requestId || (error instanceof Error && error.name === 'AbortError')) return
-      const apiError = error instanceof ResultApiError
-        ? error
-        : new ResultApiError('network_error')
-      setQueryError(apiError)
-      if (apiError.jobUnavailable) setJobUnavailable(true)
-    } finally {
-      if (queryRequestId.current === requestId) {
-        queryLock.current = false
-        queryController.current = null
-        setIsQuerying(false)
-      }
-    }
-  }
-
-  async function handleDownload(kind: 'all' | 'product') {
-    const product = kind === 'product' ? queryResult?.product : undefined
-    if (
-      !publicId ||
-      downloadLock.current ||
-      queryLock.current ||
-      jobUnavailable ||
-      (kind === 'product' && (!product || product !== selectedProduct))
-    ) return
-
-    const requestId = downloadRequestId.current + 1
-    downloadRequestId.current = requestId
-    const controller = new AbortController()
-    downloadController.current = controller
-    downloadLock.current = true
-    setDownloadKind(kind)
-    setDownloadError(null)
-    setDownloadMessage(null)
-
-    try {
-      const result = await downloadVolumePriceMergeResult(publicId, product, controller.signal)
-      if (downloadRequestId.current !== requestId) return
-
-      const objectUrl = URL.createObjectURL(result.blob)
-      activeObjectUrls.current.add(objectUrl)
-      const anchor = document.createElement('a')
-      anchor.href = objectUrl
-      anchor.download = result.filename
-      document.body.append(anchor)
-      anchor.click()
-      anchor.remove()
-      window.setTimeout(() => {
-        if (activeObjectUrls.current.delete(objectUrl)) URL.revokeObjectURL(objectUrl)
-      }, 0)
-      setDownloadMessage(`已送出下載：${result.filename}`)
-    } catch (error: unknown) {
-      if (downloadRequestId.current !== requestId || (error instanceof Error && error.name === 'AbortError')) return
-      const apiError = error instanceof ResultApiError
-        ? error
-        : new ResultApiError('network_error')
-      setDownloadError(apiError)
-      if (apiError.jobUnavailable) setJobUnavailable(true)
-    } finally {
-      if (downloadRequestId.current === requestId) {
-        downloadLock.current = false
-        downloadController.current = null
-        setDownloadKind(null)
-      }
-    }
+    selectProduct(event.currentTarget.value)
   }
 
   const currentStepIndex = workflowStepOrder.indexOf(step)
@@ -813,7 +636,7 @@ export default function VolumePriceMergePage() {
                         className="merge-query__controls"
                         onSubmit={(event) => {
                           event.preventDefault()
-                          void handleQueryProduct()
+                          void queryProduct()
                         }}
                       >
                         <label htmlFor="merge-product">作物</label>
@@ -848,50 +671,11 @@ export default function VolumePriceMergePage() {
                     {queryError && <p className="merge-query__error" role="alert">{queryError.message}</p>}
 
                     {queryResult && (
-                      <section className="merge-query-result" aria-labelledby="merge-query-result-title">
-                        <h3 id="merge-query-result-title" ref={queryResultHeading} tabIndex={-1}>
-                          查詢結果：{queryResult.product}
-                        </h3>
-                        <p>共 {queryResult.columns.length} 個欄位、{queryResult.rows.length} 列統計指標。</p>
-                        {queryResult.rows.length > 0 ? (
-                          <div
-                            className="merge-query-result__table-scroll"
-                            role="region"
-                            aria-label={`${queryResult.product}查詢結果表格`}
-                            tabIndex={0}
-                          >
-                            <table>
-                              <caption>{queryResult.product}的合併資料</caption>
-                              <thead>
-                                <tr>
-                                  <th scope="col">統計指標</th>
-                                  {queryResult.columns.map((column) => (
-                                    <th scope="col" key={column.key}>
-                                      <span>{column.major_category}</span>
-                                      <span>{column.year}</span>
-                                      <span>{column.crop}</span>
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {queryResult.rows.map((row, rowIndex) => (
-                                  <tr key={`${publicId}-${queryResult.product}-${rowIndex}`}>
-                                    <th scope="row">{row.metric}</th>
-                                    {row.values.map((value, valueIndex) => (
-                                      <td key={`${queryResult.columns[valueIndex].key}-${valueIndex}`}>
-                                        {value === null ? <span aria-label="空值">—</span> : value}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <p className="merge-query__empty">這個作物目前沒有非空白的統計指標資料。</p>
-                        )}
-                      </section>
+                      <MergeQueryResultTable
+                        publicId={publicId}
+                        queryResult={queryResult}
+                        headingRef={queryResultHeading}
+                      />
                     )}
                   </section>
 
@@ -902,7 +686,7 @@ export default function VolumePriceMergePage() {
                         type="button"
                         disabled={downloadKind !== null || isQuerying || jobUnavailable}
                         reducedMotion={reducedMotion}
-                        onClick={() => void handleDownload('all')}
+                        onClick={() => void downloadAll()}
                       >
                         {downloadKind === 'all' ? '準備完整檔案中…' : '下載全部合併結果'}
                       </WorkActionButton>
@@ -917,7 +701,7 @@ export default function VolumePriceMergePage() {
                           queryResult.product !== selectedProduct
                         }
                         reducedMotion={reducedMotion}
-                        onClick={() => void handleDownload('product')}
+                        onClick={() => void downloadProduct()}
                       >
                         {downloadKind === 'product'
                           ? `準備「${queryResult?.product ?? ''}」檔案中…`
