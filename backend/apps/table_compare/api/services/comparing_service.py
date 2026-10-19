@@ -29,9 +29,7 @@ PROPERTY_TYPE = Literal["production", "area"]
 
 class ComparingService:
 
-    def __init__(self, excel_file, pdf_file):
-        self._excel_adapter = ExcelTableAdapter(excel_file, sheet_name="合併結果")
-        self._pdf_adapter = PDFTableAdapter(pdf_file)
+    def __init__(self):
         self._table_comparactor = TableComparactor()
 
     def compare(self, excel_file, pdf_file, **scope):

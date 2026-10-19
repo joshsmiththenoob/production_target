@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 # Most customization cases should be covered by the extend_schema decorator.
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiRequest, extend_schema
 from ..services.comparing_service import ComparisonInputError,ComparingService
 from ..serializers.comparing_serializer import ComparisonDataSerializer, ComparisonUploadSerializer, ComparisonResponseSerializer
 from config.utils.response_formatter import ResponseFormatter
@@ -28,7 +28,15 @@ class ComparingView(APIView):
 
     @extend_schema(
         summary="比較 PDF 與合併 Excel",
+        # request=ComparisonUploadSerializer,
+        request=OpenApiRequest(
         request=ComparisonUploadSerializer,
+        encoding={
+            "crops": {"style": "form", "explode": True},
+            "years": {"style": "form", "explode": True},
+            "metrics": {"style": "form", "explode": True},
+            },
+        ),          
         responses={
             200: ComparisonResponseSerializer,
             400: ErrorResponseSerializer,
@@ -37,21 +45,22 @@ class ComparingView(APIView):
         tags=["Table Compare"],
     )
     def post(self, request: Request) -> Response:
+        print(request.data)
         serializer = self.serializer_class(data=request.data)
 
         if not serializer.is_valid():
+            print(serializer.errors)
             return ResponseFormatter.error_response(
                 code="invalid_upload",
                 http_status=status.HTTP_400_BAD_REQUEST,
                 message="請檢查檔案與比對條件。",
                 field_errors=serializer.errors,
             )
-
+        print(serializer.validated_data)
         try:
-            result = ComparingService().compare(
-                **serializer.validated_data
-            )
+            result = ComparingService().compare(**serializer.validated_data)
         except ComparisonInputError as error:
+            print(str(error))
             return ResponseFormatter.error_response(
                 code="invalid_comparison",
                 http_status=status.HTTP_400_BAD_REQUEST,
