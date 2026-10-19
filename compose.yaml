@@ -64,6 +64,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - ./backend:/app
       # - /mnt/d/production_target_media:/app/media

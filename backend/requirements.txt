@@ -3,4 +3,5 @@ djangorestframework==3.17.2
 psycopg[binary]==3.3.4
 openpyxl==3.1.5
 drf-spectacular==0.30.0
-
+pandas==2.3.2
+pdfplumber==0.11.10

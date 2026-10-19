@@ -7,10 +7,13 @@ The Excel Adapter is responsible for
 from .base import DataAdapter
 import pandas as pd
 import re
-from ..utils.normalization import (
-    COMMON_COLUMNS, clean_label, normalize_value, normalize_crop_name
+from ..normalization import (
+    COMMON_COLUMNS,
+    clean_label,
+    normalize_value,
+    normalize_crop_name,
+    normalize_category,
 )
-
 class ExcelTableAdapter(DataAdapter):
     def __init__(self, path: str, sheet_name= 0):
         self.path = path

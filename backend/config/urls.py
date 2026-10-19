@@ -11,6 +11,7 @@ version = "v1"
 urlpatterns = [
     path(f"api/{version}/health/", include("apps.health.urls")),
     path(f"api/{version}/price-volume-merge/", include("apps.volume_price_merge.urls")),
+    path(f"api/{version}/table-compare/", include("apps.table_compare.urls")),
 
     # Standard View of API docs' packages, ex: Swagger, Redoc
     # -> To provide standard schema

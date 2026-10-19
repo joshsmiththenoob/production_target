@@ -8,14 +8,13 @@ import pdfplumber
 import pandas as pd
 
 from .base import DataAdapter
-from ..utils.normalization import (
+from ..normalization import (
     COMMON_COLUMNS,
     clean_label,
-    normalize_category,
     normalize_value,
-    normalize_crop_name
+    normalize_crop_name,
+    normalize_category,
 )
-
 class PDFTableAdapter(DataAdapter):
     def __init__(self, path: str, sheet_name= 0):
         self.path = path
