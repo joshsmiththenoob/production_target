@@ -10,10 +10,19 @@ import re
 from ..normalization import (
     COMMON_COLUMNS,
     clean_label,
-    normalize_value,
-    normalize_crop_name,
     normalize_category,
+    normalize_value,
+    normalize_crop_name
 )
+
+
+RICE_SOURCE_CROP_BY_METRIC = {
+    "產量": "糙米",
+    "產值": "糙米",
+    "種植面積": "稻米",
+    "收穫面積": "稻米",
+}
+
 class ExcelTableAdapter(DataAdapter):
     def __init__(self, path: str, sheet_name= 0):
         self.path = path
@@ -65,7 +74,8 @@ class ExcelTableAdapter(DataAdapter):
             category = clean_label(category)
 
             for column in range(1, raw.shape[1]):
-                column_category = clean_label(categories.iloc[column])
+                column_category = normalize_category(categories.iloc[column])
+
 
                 # 果品資料列只讀果品欄；特作資料列只讀特作欄。
                 if column_category != category:
@@ -75,10 +85,24 @@ class ExcelTableAdapter(DataAdapter):
                 year = re.fullmatch(
                     r"(\d+)年", clean_label(years.iloc[column])
                 )
-                crop = normalize_crop_name(raw.iloc[3, column])
+                # crop = normalize_crop_name(raw.iloc[3, column])
+                source_crop = clean_label(
+                    raw.iloc[3, column]
+                ).lstrip("*")
+
+                if category == "稻米" and source_crop in {"稻米", "糙米"}:
+                    expected_crop = RICE_SOURCE_CROP_BY_METRIC[metric]
+
+                    if source_crop != expected_crop:
+                        continue
+
+                crop = normalize_crop_name(source_crop)
+
+
 
                 if year and crop:
                     records.append([
+                        category,
                         crop,
                         int(year.group(1)),
                         metric,

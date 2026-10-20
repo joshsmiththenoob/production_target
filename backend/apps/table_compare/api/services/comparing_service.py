@@ -36,8 +36,8 @@ class ComparingService:
         excel_file.seek(0)
         pdf_file.seek(0)
 
-        excel_df = ExcelTableAdapter.load()
-        pdf_df = PDFTableAdapter.load()
+        excel_df = ExcelTableAdapter(excel_file).load()
+        pdf_df = PDFTableAdapter(pdf_file).load()
 
         
         if excel_df.empty and pdf_df.empty:
@@ -45,13 +45,13 @@ class ComparingService:
 
         # 第一版先阻止有歧義的資料進行比對
         for source, frame in [("Excel", excel_df), ("PDF", pdf_df)]:
-            if frame.duplicated(self.KEYS).any():
+            if frame.duplicated(self._table_comparactor.KEYS).any():
                 raise ComparisonInputError(
                     f"{source} 出現重複比對鍵，請先確認來源資料。"
                 )
 
 
-        result = TableComparactor().start_comparing(excel_df, pdf_df, **scope)
+        result = self._table_comparactor.start_comparing(excel_df, pdf_df, **scope)
 
         # outer merge 產生的 NaN 改成 None
         cleaned = result.astype(object).where(result.notna(), None)

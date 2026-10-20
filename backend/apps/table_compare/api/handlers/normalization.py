@@ -4,13 +4,30 @@ import unicodedata
 import pandas as pd
 
 COMMON_COLUMNS = [
-    "作物", "年度", "指標", "單位", "數值"
+    "大項", "作物", "年度", "指標", "單位", "數值"
 ]
 
+# 統一採用目前 Excel 合併結果的分類名稱
 MAJOR_CATEGORY_MAPPING = {
     "果樹": "果品",
-
+    "特用作物": "特作",
 }
+
+# 針對特定作物進行分類
+CROP_NAME_MAPPING = {
+    "稻米(糙米)": "糙米",
+    "稻米": "糙米",
+}
+
+
+def normalize_crop_name(value: str | None) -> str:
+    name = clean_label(value).lstrip("*")
+    return CROP_NAME_MAPPING.get(name, name)
+
+def normalize_category(name: str) -> str:
+    name = clean_label(name)
+    return MAJOR_CATEGORY_MAPPING.get(name, name)
+
 
 
 def normalize_value(value, *, round_integer=False):
@@ -33,19 +50,9 @@ def normalize_value(value, *, round_integer=False):
     return number
 
 
-def normalize_category(name: str) -> str:
-    name = clean_label(name)
-    return MAJOR_CATEGORY_MAPPING.get(name, name)
-
-
 def clean_label(text: str | None) -> str:
     """
     Erase the newline syntaax.
     """
     text = unicodedata.normalize("NFKC", text or "")
     return re.sub(r"\s+", "", text)
-
-
-def normalize_crop_name(value: str | None) -> str:
-    name = clean_label(value)
-    return name.lstrip("*")
