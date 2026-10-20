@@ -8,12 +8,12 @@ from rest_framework.views import APIView
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
 
-from ..serializers.comparing_serializer import (
+from ..serializers.comparison_preview_serializer import (
     ComparisonPreviewDataSerializer,
     ComparisonPreviewResponseSerializer,
     ComparisonPreviewUploadSerializer,
 )
-from ..services.comparing_service import ComparisonInputError, ComparingService
+from ..services.comparison_preview_service import ComparisonInputError, ComparisonPreviewService
 
 
 class ComparisonPreviewView(APIView):
@@ -42,7 +42,7 @@ class ComparisonPreviewView(APIView):
             )
 
         try:
-            preview = ComparingService().build_preview(
+            preview = ComparisonPreviewService().build_preview(
                 **serializer.validated_data
             )
         except ComparisonInputError as error:
