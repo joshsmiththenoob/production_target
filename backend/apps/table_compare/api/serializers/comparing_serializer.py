@@ -45,6 +45,51 @@ class ComparisonUploadSerializer(serializers.Serializer):
     )
 
 
+class ComparisonPreviewUploadSerializer(serializers.Serializer):
+    excel_file = serializers.FileField(validators=[FileValidator(".xlsx")])
+    pdf_file = serializers.FileField(validators=[FileValidator(".pdf")])
+
+
+class ComparisonPreviewDefaultsSerializer(serializers.Serializer):
+    crops = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+    )
+    years = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True,
+    )
+    metrics = serializers.ListField(
+        child=serializers.ChoiceField(choices=METRICS),
+        allow_empty=True,
+    )
+
+
+class ComparisonPreviewDataSerializer(serializers.Serializer):
+    crops = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+    )
+    years = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True,
+    )
+    metrics = serializers.ListField(
+        child=serializers.ChoiceField(choices=METRICS),
+        allow_empty=True,
+    )
+    defaults = ComparisonPreviewDefaultsSerializer()
+    issues = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+    )
+
+
+class ComparisonPreviewResponseSerializer(serializers.Serializer):
+    data = ComparisonPreviewDataSerializer()
+    message = serializers.CharField()
+
+
 class ComparisonRowSerializer(serializers.Serializer):
     crop = serializers.CharField(source="作物")
     year = serializers.IntegerField(source="年度")
@@ -55,7 +100,7 @@ class ComparisonRowSerializer(serializers.Serializer):
 
     pdf_value = serializers.CharField(source="數值_pdf", allow_null=True, allow_blank=True)
     excel_value = serializers.CharField(source="數值_excel", allow_null=True, allow_blank=True)
-    
+
     status = serializers.CharField(source="比對結果")
 
 

@@ -20,12 +20,13 @@ class PDFTableAdapter(DataAdapter):
     def __init__(self, path: str, sheet_name= 0):
         self.path = path
         self.sheet_name = sheet_name
+        self.skipped_pages: list[dict[str, int | str]] = []
 
     def load(self) -> pd.DataFrame:
         """Load the Excel file and convert it to a Standardized DataFrame."""
         # d = pd.DataFrame()
         frames = []
-        skipped_pages = []
+        self.skipped_pages = []
         with pdfplumber.open(self.path) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
                 try:
@@ -54,7 +55,7 @@ class PDFTableAdapter(DataAdapter):
                 #     expected_columns = columns
 
                 except Exception as e:
-                    skipped_pages.append({
+                    self.skipped_pages.append({
                         "頁碼": page_number,
                         "原因": str(e),
                     })
