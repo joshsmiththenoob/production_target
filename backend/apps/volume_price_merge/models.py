@@ -21,7 +21,7 @@ class VolumePriceMergeJob(models.Model):
     Description of job only
     """
     job = models.OneToOneField("jobs.Job", primary_key=True, on_delete=models.CASCADE, related_name="volume_price_merge",)
-    pairing_preview = models.JSONField(default=dict)
+    preview = models.JSONField(default=dict)
     result_data = models.JSONField(null=True, blank=True)
 
 class MergeInputFile(models.Model):
