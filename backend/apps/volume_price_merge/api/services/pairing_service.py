@@ -24,7 +24,7 @@ from ...models import MergeInputFile, VolumePriceMergeJob
 
 
 # create specific type to resctrict the type of argument
-PROPERTY_TYPE = Literal["production", "area"]
+FILE_ROLE = Literal["production", "area"]
 
 
 class PairingService:
@@ -40,8 +40,8 @@ class PairingService:
         Get the result of pairing if every category get both production/area informations.
         """
         # get information(file_name, property type, major_category) of production/area file
-        production_infos = self.__inspect_files(files= production_files, property_type= "production")
-        area_infos = self.__inspect_files(files= area_files, property_type= "area")
+        production_infos = self.__inspect_files(files= production_files, file_role= "production")
+        area_infos = self.__inspect_files(files= area_files, file_role= "area")
 
         preview_pairing_result = self._pair_validator.build_preview(production_infos, area_infos)
 
@@ -55,7 +55,7 @@ class PairingService:
         return result
 
 
-    def __inspect_files(self, files: list[UploadedFile], property_type: PROPERTY_TYPE) -> list[dict]:
+    def __inspect_files(self, files: list[UploadedFile], file_role: FILE_ROLE) -> list[dict]:
         """
         inspect all files to exctract their:
             1. file name
@@ -79,7 +79,7 @@ class PairingService:
                 {
                     "uploaded_file": uploaded_file,
                     "file_name": uploaded_file.name,
-                    "property_type": property_type,
+                    "file_role": file_role,
                     "major_category": major_category,
                 }
             )
@@ -114,7 +114,7 @@ class MergeJobCreationService:
 
             MergeInputFile.objects.create(
                 merge_job=merge_job,
-                property_type=info["property_type"],
+                file_role=info["file_role"],
                 major_category=info["major_category"],
                 original_name=uploaded_file.name,
                 file=uploaded_file,

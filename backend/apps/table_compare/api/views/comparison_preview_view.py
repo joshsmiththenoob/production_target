@@ -45,6 +45,7 @@ class ComparisonPreviewView(APIView):
             preview = ComparisonPreviewService().build_preview(
                 **serializer.validated_data
             )
+            
         except ComparisonInputError as error:
             return ResponseFormatter.error_response(
                 code="invalid_preview",

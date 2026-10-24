@@ -20,15 +20,13 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.jobs.models import Job
-# from ...models import MergeInputFile, VolumePriceMergeJob
+from ...models import CompareInputFile, TableCompareJob
 
 
 
 
 # create specific type to resctrict the type of argument
-PROPERTY_TYPE = Literal["production", "area"]
 SUPPORTED_METRICS = ("產量", "產值", "種植面積", "收穫面積")
-
 
 class ComparisonPreviewService:
 
@@ -42,42 +40,45 @@ class ComparisonPreviewService:
         excel_adapter = ExcelTableAdapter(excel_file)
         pdf_adapter = PDFTableAdapter(pdf_file)
 
+
+        inspected_files = []
         try:
             excel_df = excel_adapter.load()
+            inspected_files.append({
+                "uploaded_file": excel_file,
+                "file_type": "excel",
+            })
         except Exception as error:
             raise ComparisonInputError("無法解析 Excel 檔案。") from error
 
         try:
             pdf_df = pdf_adapter.load()
+            inspected_files.append({
+                "uploaded_file": pdf_file,
+                "file_type": "pdf",
+            })
         except Exception as error:
             raise ComparisonInputError("無法解析 PDF 檔案。") from error
 
-        # Get crops 
+        # Get unique crops 
         crops = self._ordered_unique_crops(excel_df["作物"])
         pdf_crops = self._ordered_unique_crops(pdf_df["作物"])
-        years = sorted(
-            self._normalized_years(excel_df["年度"])
-            & self._normalized_years(pdf_df["年度"])
-        )
-        excel_metrics = {
-            clean_label(str(value))
-            for value in excel_df["指標"]
-            if not pd.isna(value)
-        }
-        metrics = [
-            metric for metric in SUPPORTED_METRICS
-            if metric in excel_metrics
-        ]
+        # Find common years and sort them
+        years = sorted(self._normalized_years(excel_df["年度"]) & self._normalized_years(pdf_df["年度"]))
 
+        # Use Excel metrics: "指標" as a reference for previewing avaliable comparison.
+        excel_metrics = {clean_label(str(value)) for value in excel_df["指標"] if not pd.isna(value)}
+        metrics = [metric for metric in SUPPORTED_METRICS if metric in excel_metrics]
+
+        # Record issue if crop in excel couldn't correspond to the crop in pdf.
         issues = [
             (
                 f"目前的 PDF 解析結果未找到作物「{crop}」；"
                 "這不代表來源 PDF 沒有資料。"
-            )
-            for crop in crops
-            if crop not in pdf_crops
+            ) for crop in crops if crop not in pdf_crops
         ]
 
+        # Collect the skipped page of pdf due to NOT parsing specific table in pdf correctly for now.
         for skipped_page in pdf_adapter.skipped_pages:
             page_number = skipped_page.get("頁碼")
             reason = skipped_page.get("原因") or "未知原因"
@@ -96,17 +97,27 @@ class ComparisonPreviewService:
             "years": list(years),
             "metrics": list(metrics),
         }
-
-        return {
+        # Then wrap comparison preview 
+        comparison_preview = {
             "crops": crops,
             "years": years,
             "metrics": metrics,
             "defaults": defaults,
             "issues": issues,
+
         }
 
+        # Finllay, Wrap result which contains files' info and preview result
+        result = {
+            "uploaded_file_infos": inspected_files,
+            "preview_result": comparison_preview,
+        }
+
+        return result
+
+
     @staticmethod
-    def _ordered_unique_crops(values) -> list[str]:
+    def _ordered_unique_crops(values: list[str]) -> list[str]:
         """
         Get unique crops by
         1. Check if it's None
@@ -129,7 +140,7 @@ class ComparisonPreviewService:
         return crops
 
     @staticmethod
-    def _normalized_years(values) -> set[int]:
+    def _normalized_years(values: list[str]) -> set[int]:
         """
         Get unique years, its method also is similar to ordered_unique_crops() above.
         """
@@ -160,9 +171,9 @@ class ComparisonJobCreationService:
         )
 
         # Create description of specific bussiness relate the job we created above
-        merge_job = VolumePriceMergeJob.objects.create(
+        merge_job = TableCompareJob.objects.create(
             job=job,
-            pairing_preview=preview,
+            preview=preview,
         )
 
 
@@ -172,10 +183,9 @@ class ComparisonJobCreationService:
             uploaded_file = info["uploaded_file"]
             uploaded_file.seek(0)
 
-            MergeInputFile.objects.create(
+            CompareInputFile.objects.create(
                 merge_job=merge_job,
-                property_type=info["property_type"],
-                major_category=info["major_category"],
+                file_type=info["file_type"],
                 original_name=uploaded_file.name,
                 file=uploaded_file,
                 size_bytes=uploaded_file.size,

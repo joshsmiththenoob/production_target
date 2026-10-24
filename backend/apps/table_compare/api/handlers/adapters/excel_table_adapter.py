@@ -82,14 +82,12 @@ class ExcelTableAdapter(DataAdapter):
                     continue
 
 
-                year = re.fullmatch(
-                    r"(\d+)年", clean_label(years.iloc[column])
-                )
+                year = re.fullmatch(r"(\d+)年", clean_label(years.iloc[column]))
                 # crop = normalize_crop_name(raw.iloc[3, column])
-                source_crop = clean_label(
-                    raw.iloc[3, column]
-                ).lstrip("*")
+                source_crop = clean_label(raw.iloc[3, column]).lstrip("*")
 
+                # for "稻米": we specify "糙米" is representation of whole "稻米" 
+                # cause the excel will present "稻米" wether we export "糙米" from "稻米" major cateory in SD.
                 if category == "稻米" and source_crop in {"稻米", "糙米"}:
                     expected_crop = RICE_SOURCE_CROP_BY_METRIC[metric]
 

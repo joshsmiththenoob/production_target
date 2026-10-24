@@ -39,8 +39,8 @@ class PairValidator:
                                         }
                                       )
 
-            # According to property_type(production/area) as key, need to insert value with file name
-            pair[item["property_type"]].append(item["file_name"])
+            # According to file_role(production/area) as key, need to insert value with file name
+            pair[item["file_role"]].append(item["file_name"])
 
 
         return self.__check_pairs_result(grouped_infos)

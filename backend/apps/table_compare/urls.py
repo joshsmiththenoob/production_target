@@ -11,7 +11,7 @@ from .api.views.comparing_view import ComparingView
 app_name = "table_compare"
 
 urlpatterns = [
-    path("preview/", ComparisonPreviewView.as_view(), name="preview"),
+    path("jobs/", ComparisonPreviewView.as_view(), name="comparison-preview"),
     path("jobs/<uuid:public_id>/run/",ComparingView.as_view(), name="comparing")
     # path("jobs/<uuid:public_id>/run/",MergingView.as_view(), name="merging"),
     # path("jobs/<uuid:public_id>/result/",MergingResultView.as_view(), name="query"),

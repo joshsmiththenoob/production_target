@@ -89,7 +89,7 @@ class MergingService:
             try: 
                 rows = self.__work_book_reader.read_rows(input_file.file, file_name= input_file.original_name)
                 # Get indexes of row about year, product and start point of datatset
-                normalized_file = self.__excel_handler.normalize_input(rows, input_file.major_category, input_file.property_type, input_file.original_name)
+                normalized_file = self.__excel_handler.normalize_input(rows, input_file.major_category, input_file.file_role, input_file.original_name)
                 all_normalized_files.append(normalized_file)
 
             finally:

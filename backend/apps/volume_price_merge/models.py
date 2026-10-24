@@ -9,7 +9,7 @@ def merge_input_path(instance, filename):
     suffix = Path(filename).suffix.lower()
     return (
         f"jobs/{instance.merge_job_id}/inputs/"
-        f"{instance.property_type}/{uuid.uuid4().hex}{suffix}"
+        f"{instance.file_role}/{uuid.uuid4().hex}{suffix}"
     )
 
 
@@ -29,14 +29,14 @@ class MergeInputFile(models.Model):
     The origin input files will lead to 1 result of merge job
     """
      # Define custom choices for specfic column
-    class PropertyType(models.TextChoices):
+    class FileRole(models.TextChoices):
         PRODUCTION = ("production", "產量及產值")
         AREA = ("area", "種植及收穫面積")
 
     merge_job = models.ForeignKey(VolumePriceMergeJob, on_delete=models.CASCADE, related_name="input_files",)
 
     # Set custom choices to particular column
-    property_type = models.CharField(max_length=16, choices=PropertyType.choices)
+    file_role = models.CharField(max_length=16, choices=FileRole.choices)
     major_category = models.CharField(max_length=100)
 
     # File informations 
@@ -52,7 +52,7 @@ class MergeInputFile(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["merge_job", "property_type", "major_category"],
+                fields=["merge_job", "file_role", "major_category"],
                 name="uq_merge_file_role_category",
             )
         ]

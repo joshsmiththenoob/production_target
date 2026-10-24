@@ -85,6 +85,14 @@ class ComparisonPreviewDataSerializer(serializers.Serializer):
     )
 
 
+
+class CreatedComparisonJobDataSerializer(serializers.Serializer):
+    public_id = serializers.UUIDField()
+    preview = ComparisonPreviewDataSerializer()
+
+
+
 class ComparisonPreviewResponseSerializer(serializers.Serializer):
-    data = ComparisonPreviewDataSerializer()
+    data = CreatedComparisonJobDataSerializer()
     message = serializers.CharField()
+    meta = serializers.DictField(allow_null=True)
