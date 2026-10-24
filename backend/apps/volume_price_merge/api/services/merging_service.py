@@ -228,7 +228,7 @@ class MergingService:
             workbook_result_bytes = self.__excel_handler.build_query_workbook(query_result)
         else:
             # otherwise, we'll download workbhook of whole merged result in DB
-            workbook_result_bytes = self.__excel_handler.build_workbook(merge_job.result_data, merge_job.pairing_preview, source_file_count= source_file_count)
+            workbook_result_bytes = self.__excel_handler.build_workbook(merge_job.result_data, merge_job.preview, source_file_count= source_file_count)
 
 
         # Set download file information

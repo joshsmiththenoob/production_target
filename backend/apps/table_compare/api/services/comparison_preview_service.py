@@ -171,7 +171,7 @@ class ComparisonJobCreationService:
         )
 
         # Create description of specific bussiness relate the job we created above
-        merge_job = TableCompareJob.objects.create(
+        compare_job = TableCompareJob.objects.create(
             job=job,
             preview=preview,
         )
@@ -184,14 +184,14 @@ class ComparisonJobCreationService:
             uploaded_file.seek(0)
 
             CompareInputFile.objects.create(
-                merge_job=merge_job,
+                compare_job=compare_job,
                 file_type=info["file_type"],
                 original_name=uploaded_file.name,
                 file=uploaded_file,
                 size_bytes=uploaded_file.size,
             )
 
-#         return job
+        return job
 
 
 

@@ -13,7 +13,7 @@ from ..serializers.comparison_preview_serializer import (
     ComparisonPreviewResponseSerializer,
     ComparisonPreviewUploadSerializer,
 )
-from ..services.comparison_preview_service import ComparisonInputError, ComparisonPreviewService
+from ..services.comparison_preview_service import ComparisonInputError, ComparisonPreviewService, ComparisonJobCreationService
 
 
 class ComparisonPreviewView(APIView):
@@ -42,20 +42,33 @@ class ComparisonPreviewView(APIView):
             )
 
         try:
-            preview = ComparisonPreviewService().build_preview(
+            result = ComparisonPreviewService().build_preview(
                 **serializer.validated_data
             )
+            # Create Comparison Job
+            preview = result["preview_result"]
+            job = ComparisonJobCreationService().create(
+                preview=preview,
+                file_infos=result["uploaded_file_infos"],
+            )
             
+            # Wrap result with job's public_id
+            response_data = {
+                    "public_id": str(job.public_id),
+                    "preview": result["preview_result"],
+                }
+
+            return ResponseFormatter.success_response(
+                data= response_data,
+                http_status= status.HTTP_201_CREATED,
+                message=  "Comparison Preview Sucessfully! Job created.",
+            )
+
+
+
         except ComparisonInputError as error:
             return ResponseFormatter.error_response(
                 code="invalid_preview",
                 http_status=status.HTTP_400_BAD_REQUEST,
                 message=str(error),
             )
-
-        output = ComparisonPreviewDataSerializer(instance=preview)
-        return ResponseFormatter.success_response(
-            data=output.data,
-            http_status=status.HTTP_200_OK,
-            message="比對範圍預覽完成。",
-        )

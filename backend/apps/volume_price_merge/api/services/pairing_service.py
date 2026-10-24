@@ -102,7 +102,7 @@ class MergeJobCreationService:
         # Create description of specific bussiness relate the job we created above
         merge_job = VolumePriceMergeJob.objects.create(
             job=job,
-            pairing_preview=preview,
+            preview=preview,
         )
 
 

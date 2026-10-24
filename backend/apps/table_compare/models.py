@@ -10,13 +10,9 @@ def compare_input_path(instance, filename):
     suffix = Path(filename).suffix.lower()
     return (
         f"jobs/{instance.compare_job_id}/inputs/"
-        f"{instance.property_type}/{uuid.uuid4().hex}{suffix}"
+        f"{instance.file_type}/{uuid.uuid4().hex}{suffix}"
     )
 
-
-
-def merge_output_path(instance, filename):
-    return f"jobs/{instance.job_id}/output/{uuid.uuid4().hex}.xlsx"
 
 class TableCompareJob(models.Model):
     """
@@ -25,6 +21,7 @@ class TableCompareJob(models.Model):
     job = models.OneToOneField("jobs.Job", primary_key=True, on_delete=models.CASCADE, related_name="table_compare",)
     preview = models.JSONField(default=dict)
     result_data = models.JSONField(null=True, blank=True)
+
 
 class CompareInputFile(models.Model):
     """

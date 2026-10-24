@@ -25,7 +25,8 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.health",
     "apps.volume_price_merge",
-    "apps.jobs"
+    "apps.jobs",
+    "apps.table_compare"
 ]
 
 MIDDLEWARE = [
