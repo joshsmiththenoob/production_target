@@ -22,11 +22,11 @@ export default function HomePage() {
           />
 
           <FeatureCard
-            title="DOCX／XLSX 表格比對"
-            summary="比對 Word 與 Excel 表格的表頭、欄位名稱及欄位值，快速確認資料差異。"
+            title="PDF／XLSX 資料比對"
+            summary="上傳完整合併 Excel 與文字型 PDF，確認作物、年度及指標；執行比對尚未開放。"
             status="planned"
             to="/table-compare"
-            accessibleLabel="查看 DOCX／XLSX 表格比對功能說明（規劃中）"
+            accessibleLabel="前往 PDF／XLSX 資料比對（上傳與預覽）"
             mediaVariant="table-compare"
             imageSrc={tableCompareImage}
             imageAlt=""

@@ -5,7 +5,7 @@ import pandas as pd
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.table_compare.api.handlers.normalization import COMMON_COLUMNS
-from apps.table_compare.api.services.comparing_service import ComparingService
+from apps.table_compare.api.services.comparison_preview_service import ComparisonPreviewService
 
 
 def make_frame(rows: list[list[object]]) -> pd.DataFrame:
@@ -18,10 +18,10 @@ class ComparingPreviewServiceTests(TestCase):
         self.pdf_file = SimpleUploadedFile("農產品.pdf", b"pdf")
 
     @patch(
-        "apps.table_compare.api.services.comparing_service.PDFTableAdapter"
+        "apps.table_compare.api.services.comparison_preview_service.PDFTableAdapter"
     )
     @patch(
-        "apps.table_compare.api.services.comparing_service.ExcelTableAdapter"
+        "apps.table_compare.api.services.comparison_preview_service.ExcelTableAdapter"
     )
     def test_build_preview_uses_excel_crops_and_common_years(
         self,
@@ -44,13 +44,13 @@ class ComparingPreviewServiceTests(TestCase):
             ["雜糧", "小麥", 109, "產量", "公噸", 7],
         ])
         pdf_adapter.skipped_pages = []
-        service = ComparingService()
+        service = ComparisonPreviewService()
 
         with patch.object(
             service._table_comparactor,
             "start_comparing",
         ) as start_comparing:
-            result = service.build_preview(self.excel_file, self.pdf_file)
+            result = service.build_preview(self.excel_file, self.pdf_file)["preview_result"]
 
         self.assertEqual(result["crops"], ["糙米", "香蕉", "茶"])
         self.assertEqual(result["years"], [111, 112])
@@ -71,10 +71,10 @@ class ComparingPreviewServiceTests(TestCase):
         start_comparing.assert_not_called()
 
     @patch(
-        "apps.table_compare.api.services.comparing_service.PDFTableAdapter"
+        "apps.table_compare.api.services.comparison_preview_service.PDFTableAdapter"
     )
     @patch(
-        "apps.table_compare.api.services.comparing_service.ExcelTableAdapter"
+        "apps.table_compare.api.services.comparison_preview_service.ExcelTableAdapter"
     )
     def test_no_common_years_and_skipped_pages_are_explicit_issues(
         self,
@@ -92,10 +92,10 @@ class ComparingPreviewServiceTests(TestCase):
             {"頁碼": 3, "原因": "目前尚未支援這個表格版型"},
         ]
 
-        result = ComparingService().build_preview(
+        result = ComparisonPreviewService().build_preview(
             self.excel_file,
             self.pdf_file,
-        )
+        )["preview_result"]
 
         self.assertEqual(result["years"], [])
         self.assertEqual(result["defaults"]["years"], [])
@@ -104,3 +104,26 @@ class ComparingPreviewServiceTests(TestCase):
             "PDF 第 3 頁未解析：目前尚未支援這個表格版型",
             result["issues"],
         )
+
+
+class ComparingCoreServiceTests(TestCase):
+    @patch('apps.table_compare.api.services.comparing_service.PDFTableAdapter')
+    @patch('apps.table_compare.api.services.comparing_service.ExcelTableAdapter')
+    def test_direct_comparison_keeps_selected_scope(self, excel_adapter, pdf_adapter):
+        from apps.table_compare.api.services.comparing_service import ComparingService
+
+        excel_adapter.return_value.load.return_value = make_frame([
+            ['果品', '香蕉', 111, '產量', '公噸', 12],
+            ['特作', '茶', 111, '產量', '公噸', 34],
+        ])
+        pdf_adapter.return_value.load.return_value = make_frame([
+            ['果品', '香蕉', 111, '產量', '公噸', 12],
+        ])
+        result = ComparingService().compare(
+            SimpleUploadedFile('anonymous.xlsx', b'excel'),
+            SimpleUploadedFile('anonymous.pdf', b'pdf'),
+            crops=['香蕉'], years=[111], metrics=['產量'],
+        )
+        self.assertEqual(result['row_count'], 1)
+        self.assertEqual(result['rows'][0]['作物'], '香蕉')
+        self.assertEqual(result['rows'][0]['比對結果'], '相同')

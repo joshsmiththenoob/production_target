@@ -1473,3 +1473,27 @@ button:hover {
     box-shadow: var(--shadow-card);
   }
 }
+
+/* PDF / XLSX work page: reuse the existing surface and form vocabulary. */
+.table-compare-page {
+  width: min(calc(100% - (2 * var(--content-gutter))), var(--content-wide));
+  padding-top: var(--space-6);
+}
+.table-compare-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(18rem, 1fr);
+  align-items: start;
+  gap: var(--space-5);
+}
+.compare-panel-slot { overflow: hidden; padding: 5px; margin: -5px; }
+.compare-scopes { display: grid; gap: var(--space-4); margin-top: var(--space-5); }
+.compare-scope { min-width: 0; margin: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.compare-scope legend { font-weight: 700; padding: 0 var(--space-2); }
+.compare-scope__choices { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.compare-scope__choices label { display: flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; padding: var(--space-2) var(--space-3); background: var(--color-surface-muted); border-radius: var(--radius-sm); cursor: pointer; }
+.compare-scope input { width: 1.15rem; height: 1.15rem; flex-shrink: 0; accent-color: var(--color-primary); }
+.table-compare-page p, .table-compare-page li, .compare-scope span { overflow-wrap: anywhere; }
+.compare-issues { margin-top: var(--space-5); padding: var(--space-4); border-left: .3rem solid var(--color-primary); background: var(--color-surface-muted); }
+.file-input-group .compare-field-error { color: var(--color-error); }
+@media (max-width: 64rem) { .table-compare-layout { grid-template-columns: 1fr; } }
+@media (max-width: 40rem) { .table-compare-page { padding-top: var(--space-5); } }

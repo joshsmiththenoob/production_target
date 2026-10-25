@@ -82,14 +82,14 @@ describe('application routes', () => {
     const hero = screen.getByRole('region', { name: '今天要處理哪一項工作？' })
     expect(within(hero).getByRole('heading', { level: 1, name: '今天要處理哪一項工作？' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '生產量值整併' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'DOCX／XLSX 表格比對' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'PDF／XLSX 資料比對' })).toBeInTheDocument()
     expect(screen.getByText('已開放')).toBeInTheDocument()
     expect(screen.getByText('規劃中')).toBeInTheDocument()
     expect(
       screen.getByText('將統計處 SD 產出的同品項生產量與生產值資料，整併為單一匯總資料。'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('比對 Word 與 Excel 表格的表頭、欄位名稱及欄位值，快速確認資料差異。'),
+      screen.getByText('上傳完整合併 Excel 與文字型 PDF，確認作物、年度及指標；執行比對尚未開放。'),
     ).toBeInTheDocument()
 
     const availableCard = screen.getByRole('link', { name: '前往生產量值整併' })
@@ -97,7 +97,7 @@ describe('application routes', () => {
     expect(availableCard).toHaveClass('feature-card--available')
 
     const plannedCard = screen.getByRole('link', {
-      name: '查看 DOCX／XLSX 表格比對功能說明（規劃中）',
+      name: '前往 PDF／XLSX 資料比對（上傳與預覽）',
     })
     expect(plannedCard).toHaveAttribute('href', '/table-compare')
     expect(plannedCard).toHaveClass('feature-card--planned')
@@ -130,7 +130,7 @@ describe('application routes', () => {
   // 針對 card link、path、placeholder 進行測試
   it.each([
     ['前往生產量值整併', '/volume-price-merge', '1. 選擇檔案', '← 返回工作入口'],
-    ['查看 DOCX／XLSX 表格比對功能說明（規劃中）', '/table-compare', '尚未開放', '返回首頁'],
+    ['前往 PDF／XLSX 資料比對（上傳與預覽）', '/table-compare', '1. 選擇檔案', '← 返回工作入口'],
   ])('navigates with %s and returns home', (linkName, path, pageHeading, returnLinkName) => {
     renderRoute()
     // 確認點擊整張卡片的連結
@@ -496,7 +496,7 @@ describe('application routes', () => {
 
   it.each([
     ['/volume-price-merge', '生產量值整併'],
-    ['/table-compare', 'DOCX／XLSX 表格比對'],
+    ['/table-compare', 'PDF／XLSX 資料比對'],
   ])('renders a direct visit to %s with shared navigation', (path, title) => {
     renderRoute(path)
     expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()

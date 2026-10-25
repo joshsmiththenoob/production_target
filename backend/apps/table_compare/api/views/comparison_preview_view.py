@@ -26,7 +26,7 @@ class ComparisonPreviewView(APIView):
         summary="預覽 Excel 與 PDF 的可比對範圍",
         request=ComparisonPreviewUploadSerializer,
         responses={
-            200: ComparisonPreviewResponseSerializer,
+            201: ComparisonPreviewResponseSerializer,
             400: ErrorResponseSerializer,
         },
         tags=["Table Compare"],

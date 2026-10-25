@@ -160,8 +160,18 @@ class ComparisonPreviewService:
 
 
 class ComparisonJobCreationService:
-    @transaction.atomic
     def create(self, preview, file_infos, owner=None):
+        saved_files = []
+        try:
+            with transaction.atomic():
+                return self._create(preview, file_infos, owner, saved_files)
+        except Exception:
+            # Database rollback does not remove files already written to storage.
+            for field_file in saved_files:
+                field_file.storage.delete(field_file.name)
+            raise
+
+    def _create(self, preview, file_infos, owner, saved_files):
         # Create job for management
         job = Job.objects.create(
             kind=Job.Kind.TABLE_COMPARE,
@@ -183,13 +193,15 @@ class ComparisonJobCreationService:
             uploaded_file = info["uploaded_file"]
             uploaded_file.seek(0)
 
-            CompareInputFile.objects.create(
+            source = CompareInputFile(
                 compare_job=compare_job,
                 file_type=info["file_type"],
                 original_name=uploaded_file.name,
-                file=uploaded_file,
                 size_bytes=uploaded_file.size,
             )
+            source.file.save(uploaded_file.name, uploaded_file, save=False)
+            saved_files.append(source.file)
+            source.save()
 
         return job
 
