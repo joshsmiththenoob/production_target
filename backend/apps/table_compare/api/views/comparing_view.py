@@ -2,17 +2,30 @@
 Duty on Pairing prduction/area informations from client
 that the system could return the result to mention which category lack information.
 """
+from uuid import UUID
 
-from django.shortcuts import render
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
+
+from apps.jobs.models import Job
+from config.utils.response_formatter import ResponseFormatter
+from config.utils.response_serializers import ErrorResponseSerializer
+
 # Most customization cases should be covered by the extend_schema decorator.
 from drf_spectacular.utils import OpenApiRequest, extend_schema
-from ..services.comparing_service import ComparisonInputError,ComparingService
-from ..serializers.comparing_serializer import ComparisonDataSerializer, ComparisonUploadSerializer, ComparisonResponseSerializer
+from ..serializers.comparing_serializer import (
+    ComparisonDataSerializer,
+    ComparisonResponseSerializer,
+    CompareRunRequestSerializer,
+)
+from ..services.comparing_service import (
+    ComparisonInputError,
+    ComparisonJobExpired,
+    ComparisonJobNotRunnable,
+    ComparingService,
+)
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
 
@@ -21,59 +34,84 @@ from config.utils.response_serializers import ErrorResponseSerializer
 class ComparingView(APIView):
     authentication_classes: list[type] = []
     permission_classes: list[type] = []
-    parser_classes = (MultiPartParser, FormParser)
-    serializer_class = ComparisonUploadSerializer
+    serializer_class = CompareRunRequestSerializer
     # serializer_class = PairingUploadSerializer
 
 
     @extend_schema(
-        summary="比較 PDF 與合併 Excel",
-        # request=ComparisonUploadSerializer,
-        request=OpenApiRequest(
-        request=ComparisonUploadSerializer,
-        encoding={
-            "crops": {"style": "form", "explode": True},
-            "years": {"style": "form", "explode": True},
-            "metrics": {"style": "form", "explode": True},
-            },
-        ),          
+        summary="執行 PDF 與合併 Excel 比對",
+        request=CompareRunRequestSerializer,
         responses={
             200: ComparisonResponseSerializer,
             400: ErrorResponseSerializer,
+            404: ErrorResponseSerializer,
+            409: ErrorResponseSerializer,
+            410: ErrorResponseSerializer,
             500: ErrorResponseSerializer,
         },
         tags=["Table Compare"],
     )
-    def post(self, request: Request) -> Response:
-        print(request.data)
+    def post(self, request, public_id: UUID):
         serializer = self.serializer_class(data=request.data)
 
         if not serializer.is_valid():
-            print(serializer.errors)
             return ResponseFormatter.error_response(
-                code="invalid_upload",
-                http_status=status.HTTP_400_BAD_REQUEST,
-                message="請檢查檔案與比對條件。",
+                code="invalid_scope",
+                http_status=400,
+                message="請檢查比對條件。",
                 field_errors=serializer.errors,
             )
-        print(serializer.validated_data)
+
         try:
-            result = ComparingService().compare(**serializer.validated_data)
+            result = ComparingService().run(
+                public_id=public_id,
+                **serializer.validated_data,
+            )
+            output = ComparisonDataSerializer(instance=result)
+
+            return ResponseFormatter.success_response(
+                data=output.data,
+                http_status=200,
+                message="比對完成。",
+            )
+
+        except Job.DoesNotExist:
+            return ResponseFormatter.error_response(
+                code="job_not_found",
+                http_status=404,
+                message="找不到指定的比對工作。",
+            )
+
+        except ComparisonJobExpired:
+            return ResponseFormatter.error_response(
+                code="job_expired",
+                http_status=410,
+                message="工作已過期，請重新上傳檔案。",
+            )
+
+        except ComparisonJobNotRunnable:
+            return ResponseFormatter.error_response(
+                code="job_not_runnable",
+                http_status=409,
+                message="目前的工作狀態無法執行比對。",
+            )
+
         except ComparisonInputError as error:
-            print(str(error))
             return ResponseFormatter.error_response(
                 code="invalid_comparison",
-                http_status=status.HTTP_400_BAD_REQUEST,
+                http_status=400,
                 message=str(error),
             )
 
-        output = ComparisonDataSerializer(instance=result)
+        except Exception as e:
+            print(e)
+            # logger.exception("Comparison failed: %s", public_id)
 
-        return ResponseFormatter.success_response(
-            data=output.data,
-            http_status=status.HTTP_200_OK,
-            message="比對完成。",
-        )
+            return ResponseFormatter.error_response(
+                code="comparison_failed",
+                http_status=500,
+                message="比對處理失敗，請稍後再試。",
+            )
 
     # def post(self, request: Request) -> Response:
     #     serializer = self.serializer_class(data= request.data)
