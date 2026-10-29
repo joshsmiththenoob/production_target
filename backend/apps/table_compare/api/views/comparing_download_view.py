@@ -20,11 +20,11 @@ from apps.jobs.models import Job
 from apps.volume_price_merge.api.serializers.merging_download_serializer import (
     MergingDownloadRequestSerializer
 )
-from apps.volume_price_merge.api.services.merging_service import (
-    MergeJobExpired,
-    MergeJobNotInStatus,
-    MergeInputInvalid,
-    MergingService,
+from apps.table_compare.api.services.comparing_service import (
+    ComparingService,
+    CompareJobError,
+    ComparisonJobExpired,
+    ComparisonJobNotRunnable
 )
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
@@ -69,18 +69,9 @@ class ComparingDownloadView(APIView):
         tags=["Table Compare"],
     )
     def get(self, request: Request, public_id: UUID) -> Response:
-        input_serializer = MergingDownloadRequestSerializer(data=request.query_params)
-        if not input_serializer.is_valid():
-            return ResponseFormatter.error_response(
-                code="invalid_product",
-                http_status=status.HTTP_400_BAD_REQUEST,
-                message="下載條件無效，請重新選擇作物。",
-                field_errors=input_serializer.errors,
-            )
-
         try:
-            merging_service = MergingService()
-            result = merging_service.get_workbook(public_id, input_serializer.validated_data["product"])
+            comparing_service = ComparingService()
+            result = comparing_service.get_workbook(public_id)
             
             return FileResponse(result["file_buffer"], as_attachment= True, filename=result["file_name"], content_type = self.XLSX_TYPE)
 

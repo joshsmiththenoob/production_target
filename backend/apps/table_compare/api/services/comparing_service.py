@@ -221,44 +221,36 @@ class ComparingService:
         }
 
 
-# class MergeJobCreationService:
-#     @transaction.atomic
-#     def create(self, preview, file_infos, owner=None):
-#         # Create job for management
-#         job = Job.objects.create(
-#             kind=Job.Kind.VOLUME_PRICE_MERGE,
-#             status=Job.Status.PENDING,
-#             owner=owner,
-#             expires_at=timezone.now() + timedelta(hours=24),
-#         )
-
-#         # Create description of specific bussiness relate the job we created above
-#         merge_job = VolumePriceMergeJob.objects.create(
-#             job=job,
-#             pairing_preview=preview,
-#         )
+    def get_workbook(self, public_id: UUID, product: str) -> dict:
+        """
+        Create workbook depended on merged result in specific job.
+        """
+        # Check if job is succeeded to extract.
+        job = self._claim_job(public_id, Job.Status.SUCCEEDED)
+        # Get MergeJob for accessing result data 
+        compare_job = TableCompareJob.objects.get(job_id=job.pk)
+        # Then track to all input files of specific MergeJob to obtain information of input file
+        source_file_count = CompareInputFile.objects.filter(merge_job=compare_job,).count()
 
 
-#         # In that bussiness, we got mutiple input files to result in that bussiness
-#         # Need to create every information of input files related to corresponding bussiness
-#         for info in file_infos:
-#             uploaded_file = info["uploaded_file"]
-#             uploaded_file.seek(0)
+        workbook_result_bytes = None
+        # Check if there is query condition for product or not
 
-#             MergeInputFile.objects.create(
-#                 merge_job=merge_job,
-#                 property_type=info["property_type"],
-#                 major_category=info["major_category"],
-#                 original_name=uploaded_file.name,
-#                 file=uploaded_file,
-#                 size_bytes=uploaded_file.size,
-#             )
-
-#         return job
+        workbook_result_bytes = self.__excel_handler.build_workbook(compare_job.result_data, compare_job.pairing_preview, source_file_count= source_file_count)
 
 
+        # Set download file information
+        # download time: need to use local time instead of UTC time. 
+        # timezone.now() -> UTC time; localtime() -> local time base on settings ex: Taipiei
+        date_prefix = self.__RE_handler.format_roc_date(timezone.localdate())
+        file_name = f"合併結果_{product}.xlsx" if product else "合併結果.xlsx" 
+        file_name = date_prefix + file_name
+    
 
-
+        return {
+            "file_name": self.__RE_handler.safe_filename(file_name),
+            "file_buffer": workbook_result_bytes,
+        }
 
 
 

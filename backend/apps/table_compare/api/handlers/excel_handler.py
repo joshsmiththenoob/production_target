@@ -346,3 +346,12 @@ class ExcelHandler:
         workbook.save(output)
         output.seek(0)
         return output
+
+
+    def build_compare_workbook(self, result_data: dict[str, Any], pairing_preview: dict[str, Any], *, source_file_count: int) -> io.BytesIO:
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "比對結果"
+        columns = result_data["columns"]
+        merged_rows = result_data["rows"]
+        total_columns = len(columns) + 1
