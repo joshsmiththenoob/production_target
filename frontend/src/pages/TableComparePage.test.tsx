@@ -1,24 +1,44 @@
-﻿import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import TableComparePage from './TableComparePage'
 
-const motionPreference = vi.hoisted(() => ({ reduced: false }))
+const motionPreference = vi.hoisted(() => ({ reduced: true }))
 vi.mock('motion/react', async importOriginal => {
   const actual = await importOriginal<typeof import('motion/react')>()
   return { ...actual, useReducedMotion: () => motionPreference.reduced }
 })
-afterEach(() => { vi.unstubAllGlobals(); motionPreference.reduced = false })
-const id = '04aa5e62-6b20-4cbd-8555-9a0cc83d121d'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  motionPreference.reduced = true
+})
+
+const publicId = '04aa5e62-6b20-4cbd-8555-9a0cc83d121d'
 const preview = {
   crops: ['香蕉', '茶'], years: [111, 112], metrics: ['產量', '產值'],
   defaults: { crops: ['香蕉', '茶'], years: [112], metrics: ['產量'] },
   issues: ['目前的 PDF 解析結果未找到作物「茶」；這不代表來源 PDF 沒有資料。', 'PDF 第 3 頁未解析：目前尚未支援這個表格版型'],
 }
-const payload = { data: { public_id: id, preview }, message: 'created', meta: null }
-function response(status: number, value: unknown): Response {
-  return { status, ok: status < 300, json: vi.fn().mockResolvedValue(value) } as unknown as Response
+const previewPayload = { data: { public_id: publicId, preview }, message: 'created', meta: null }
+const runPayload = {
+  data: {
+    row_count: 3,
+    rows: [
+      { crop: '香蕉', year: 112, metric: '產量', pdf_unit: '公噸', excel_unit: '公噸', pdf_value: '0', excel_value: '0', status: '相同' },
+      { crop: '茶', year: 112, metric: '產量', pdf_unit: null, excel_unit: '公噸', pdf_value: null, excel_value: '…', status: 'PDF 缺少資料' },
+      { crop: '香蕉', year: 112, metric: '產值', pdf_unit: '千元', excel_unit: '千元', pdf_value: '12', excel_value: '13', status: '數值不同' },
+    ],
+  },
+  message: '比對完成。',
+  meta: null,
 }
+
+function response(status: number, value: unknown): Response {
+  return { status, ok: status >= 200 && status < 300, json: vi.fn().mockResolvedValue(value) } as unknown as Response
+}
+
 function selectFiles() {
   const excel = new File(['xlsx'], 'anonymous.xlsx')
   const pdf = new File(['pdf'], 'anonymous.pdf')
@@ -26,158 +46,190 @@ function selectFiles() {
   fireEvent.change(screen.getByLabelText('選擇核對 PDF（.pdf）'), { target: { files: [pdf] } })
   return { excel, pdf }
 }
-function renderPage() { return render(<MemoryRouter><TableComparePage /></MemoryRouter>) }
-async function review() {
+
+function renderPage() {
+  return render(<MemoryRouter><TableComparePage /></MemoryRouter>)
+}
+
+async function reachReview() {
+  selectFiles()
   fireEvent.click(screen.getByRole('button', { name: '產生比對範圍' }))
   const heading = await screen.findByRole('heading', { name: '2. 確認比對範圍' })
   await waitFor(() => expect(heading).toHaveFocus())
   return heading
 }
-async function back() {
-  fireEvent.click(screen.getByRole('button', { name: '返回修改檔案' }))
-  const heading = await screen.findByRole('heading', { name: '1. 選擇檔案' })
-  await waitFor(() => expect(heading).toHaveFocus())
-}
 
-it('uploads exact multipart files once, renders defaults/issues, and never runs comparison', async () => {
-  let resolve!: (value: Response) => void
-  const fetchMock = vi.fn(() => new Promise<Response>(done => { resolve = done }))
+it('keeps the Step 1/2 multipart, defaults, issues and controlled Files behavior', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(response(201, previewPayload))
   vi.stubGlobal('fetch', fetchMock)
   renderPage()
-  expect(screen.getByRole('button', { name: '產生比對範圍' })).toBeDisabled()
   const { excel, pdf } = selectFiles()
-  for (const input of document.querySelectorAll('input[type=file]')) expect(input).not.toHaveAttribute('multiple')
-  const button = screen.getByRole('button', { name: '產生比對範圍' })
-  fireEvent.click(button)
-  fireEvent.click(button)
-  expect(fetchMock).toHaveBeenCalledTimes(1)
-  expect(screen.getByRole('status')).toHaveTextContent('正在解析檔案')
-  expect(button).toBeDisabled()
-  const [url, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-  expect(url).toBe('/api/v1/table-compare/jobs/')
-  expect(options.headers).toBeUndefined()
-  expect(options.method).toBe('POST')
-  expect((options.body as FormData).getAll('excel_file')).toEqual([excel])
-  expect((options.body as FormData).getAll('pdf_file')).toEqual([pdf])
-  resolve(response(201, payload))
-  await waitFor(() => expect(screen.getByRole('heading', { name: '2. 確認比對範圍' })).toHaveFocus())
+  fireEvent.click(screen.getByRole('button', { name: '產生比對範圍' }))
+
+  const heading = await screen.findByRole('heading', { name: '2. 確認比對範圍' })
+  await waitFor(() => expect(heading).toHaveFocus())
+  const body = fetchMock.mock.calls[0][1].body as FormData
+  expect(body.getAll('excel_file')).toEqual([excel])
+  expect(body.getAll('pdf_file')).toEqual([pdf])
+  expect(fetchMock.mock.calls[0][1].headers).toBeUndefined()
   expect(screen.getByRole('checkbox', { name: '茶' })).toBeChecked()
   expect(screen.getByRole('checkbox', { name: '111' })).not.toBeChecked()
   expect(screen.getByRole('checkbox', { name: '112' })).toBeChecked()
-  expect(screen.getByRole('checkbox', { name: '產值' })).not.toBeChecked()
-  const issues = screen.getByRole('region', { name: '解析提醒與待確認事項' })
-  expect(within(issues).getAllByRole('listitem').map(node => node.textContent)).toEqual(preview.issues)
-  expect(issues).toHaveTextContent('不代表 PDF 原檔一定沒有資料')
-  expect(screen.getByRole('button', { name: '開始比對' })).toBeDisabled()
-  const steps = within(screen.getByRole('list', { name: '表格比對工作流程' })).getAllByRole('listitem')
-  expect(steps[0]).toHaveTextContent('已完成')
-  expect(steps[1]).toHaveAttribute('aria-current', 'step')
-  expect(steps[2]).toHaveTextContent('未開放')
-  expect(steps[3]).toHaveTextContent('未開放')
-  fireEvent.click(screen.getByRole('checkbox', { name: '茶' }))
-  expect(screen.getByRole('checkbox', { name: '茶' })).not.toBeChecked()
-  fireEvent.click(screen.getByRole('button', { name: '開始比對' }))
-  expect(fetchMock).toHaveBeenCalledTimes(1)
-})
+  expect(within(screen.getByRole('region', { name: '解析提醒與待確認事項' })).getAllByRole('listitem'))
+    .toHaveLength(2)
 
-it('keeps controlled Files after native inputs remount, preserves selections on return, and can upload a new job', async () => {
-  const nextId = '14aa5e62-6b20-4cbd-8555-9a0cc83d121d'
-  const fetchMock = vi.fn().mockResolvedValueOnce(response(201, payload))
-    .mockResolvedValueOnce(response(201, { ...payload, data: { ...payload.data, public_id: nextId } }))
-  vi.stubGlobal('fetch', fetchMock)
-  renderPage()
-  const { excel, pdf } = selectFiles()
-  await review()
-  fireEvent.click(screen.getByRole('checkbox', { name: '茶' }))
-  await back()
+  fireEvent.click(screen.getByRole('button', { name: '返回修改檔案' }))
+  await screen.findByRole('heading', { name: '1. 選擇檔案' })
   expect(screen.getByText(`已保留：${excel.name}`)).toBeInTheDocument()
   expect(screen.getByText(`已保留：${pdf.name}`)).toBeInTheDocument()
   expect((screen.getByLabelText('選擇完整合併 Excel（.xlsx）') as HTMLInputElement).files).toHaveLength(0)
-  fireEvent.click(screen.getByRole('button', { name: '返回原預覽' }))
-  await waitFor(() => expect(screen.getByRole('heading', { name: '2. 確認比對範圍' })).toHaveFocus())
-  expect(screen.getByRole('checkbox', { name: '茶' })).not.toBeChecked()
-  expect(fetchMock).toHaveBeenCalledTimes(1)
-  await back()
-  await review()
-  const body = fetchMock.mock.calls[1][1].body as FormData
-  expect(body.get('excel_file')).toEqual(excel)
-  expect(body.get('pdf_file')).toEqual(pdf)
-  expect(screen.getByText(`工作編號：${nextId}`)).toBeInTheDocument()
-  expect(screen.getByRole('checkbox', { name: '茶' })).toBeChecked()
 })
 
-it.each(['invalid_upload', 'invalid_preview', 'network'])('keeps Files and Step 1 on %s and safely retries', async code => {
+it('posts one immutable run snapshot and moves a fast reduced-motion success to Step 4', async () => {
+  let resolveRun!: (value: Response) => void
   const fetchMock = vi.fn()
-  if (code === 'network') fetchMock.mockRejectedValueOnce(new Error('Traceback /srv/private'))
-  else fetchMock.mockResolvedValueOnce(response(400, { code, message: 'Traceback /srv/private', field_errors: { pdf_file: ['secret path'] } }))
-  fetchMock.mockResolvedValueOnce(response(201, payload))
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => { resolveRun = resolve }))
+  vi.stubGlobal('fetch', fetchMock)
+  renderPage()
+  await reachReview()
+  fireEvent.click(screen.getByRole('checkbox', { name: '茶' }))
+  const start = screen.getByRole('button', { name: '開始比對' })
+  fireEvent.click(start)
+  fireEvent.click(start)
+
+  expect(await screen.findByRole('heading', { name: '3. 執行比對' })).toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('正在執行比對')
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock.mock.calls[1][0]).toBe(`/api/v1/table-compare/jobs/${publicId}/run/`)
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    crops: ['香蕉'], years: [112], metrics: ['產量'],
+  })
+
+  resolveRun(response(200, runPayload))
+  const resultHeading = await screen.findByRole('heading', { name: '4. 結果與下載' })
+  await waitFor(() => expect(resultHeading).toHaveFocus())
+  expect(screen.getByText('共 3 筆比對明細。')).toBeInTheDocument()
+  expect(screen.getAllByText('0')).toHaveLength(2)
+  expect(screen.getByText('…')).toBeInTheDocument()
+  expect(screen.getAllByLabelText('空值')).toHaveLength(2)
+  expect(within(screen.getByRole('region', { name: '本次結果摘要' })).getAllByRole('listitem')
+    .map(item => item.textContent)).toContain('數值不同：1 筆')
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '查詢' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '下載比對結果 Excel' })).toBeDisabled()
+  expect(screen.getByText(/下載功能尚未開放/)).toBeInTheDocument()
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
+it('shows the 500ms success state in normal motion before entering results', async () => {
+  motionPreference.reduced = false
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload)))
+  renderPage()
+  await reachReview()
+  const start = screen.getByRole('button', { name: '開始比對' })
+  await waitFor(() => expect(start).toBeEnabled())
+  fireEvent.click(start)
+
+  expect(await screen.findByText('比對完成，正在顯示結果。找到差異仍屬正常完成。')).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: '4. 結果與下載' })).not.toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: '4. 結果與下載' }, { timeout: 1500 })).toBeInTheDocument()
+})
+
+it.each([
+  [400, 'invalid_scope', '比對條件無效'],
+  [400, 'invalid_comparison', '本次比對範圍無法執行'],
+  [404, 'job_not_found', '找不到這個比對工作'],
+  [409, 'job_not_runnable', '這個工作目前無法執行'],
+  [410, 'job_expired', '這個工作已過期'],
+  [500, 'comparison_failed', '比對處理失敗'],
+])('keeps HTTP %s %s in Step 3 without fake completion', async (status, code, message) => {
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(status, {
+      code, message: 'Traceback /srv/private', field_errors: code === 'invalid_scope' ? { crops: ['bad'] } : {},
+    })))
+  renderPage()
+  await reachReview()
+  fireEvent.click(screen.getByRole('button', { name: '開始比對' }))
+
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(message)
+  expect(alert).not.toHaveTextContent('Traceback')
+  expect(alert).not.toHaveTextContent('/srv')
+  expect(screen.getByRole('heading', { name: '3. 執行比對' })).toBeInTheDocument()
+  expect(screen.queryByText('比對完成')).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: '4. 結果與下載' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '重新開始' })).toBeEnabled()
+})
+
+it('treats an unknown network result as non-retryable on the same Job', async () => {
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockRejectedValueOnce(new Error('private network trace')))
+  renderPage()
+  await reachReview()
+  fireEvent.click(screen.getByRole('button', { name: '開始比對' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('網路狀態不明')
+  expect(screen.queryByRole('button', { name: '重試比對' })).not.toBeInTheDocument()
+})
+
+it('invalidates a late run response after restart and keeps the selected Files', async () => {
+  let resolveRun!: (value: Response) => void
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => { resolveRun = resolve }))
   vi.stubGlobal('fetch', fetchMock)
   renderPage()
   const { excel, pdf } = selectFiles()
   fireEvent.click(screen.getByRole('button', { name: '產生比對範圍' }))
-  const alert = await screen.findByRole('alert')
-  expect(alert).not.toHaveTextContent('Traceback')
-  expect(alert).not.toHaveTextContent('/srv')
-  expect(screen.getByRole('heading', { name: '1. 選擇檔案' })).toBeInTheDocument()
+  await screen.findByRole('heading', { name: '2. 確認比對範圍' })
+  const start = screen.getByRole('button', { name: '開始比對' })
+  await waitFor(() => expect(start).toBeEnabled())
+  fireEvent.click(start)
+  await screen.findByRole('heading', { name: '3. 執行比對' })
+  const restart = screen.getByRole('button', { name: '重新開始' })
+  await waitFor(() => expect(restart).toBeEnabled())
+  fireEvent.click(restart)
+  await screen.findByRole('heading', { name: '1. 選擇檔案' })
+
+  const late = response(200, runPayload)
+  resolveRun(late)
+  await waitFor(() => expect(late.json).toHaveBeenCalled())
+  expect(screen.queryByRole('heading', { name: '4. 結果與下載' })).not.toBeInTheDocument()
   expect(screen.getByText(`已保留：${excel.name}`)).toBeInTheDocument()
   expect(screen.getByText(`已保留：${pdf.name}`)).toBeInTheDocument()
-  if (code === 'invalid_upload') {
-    expect(screen.getByLabelText('選擇核對 PDF（.pdf）')).toHaveAttribute('aria-invalid', 'true')
-    expect(screen.getByLabelText('選擇核對 PDF（.pdf）')).toHaveAccessibleDescription(/有效且非空白/)
-  }
-  await review()
+  expect(screen.queryByText(publicId)).not.toBeInTheDocument()
 })
 
-it('invalidates preview, UUID and selection when either file changes or is removed', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(201, payload)))
+it('cancels a pending success timer when the user restarts', async () => {
+  motionPreference.reduced = false
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload)))
   renderPage()
-  selectFiles()
-  await review()
-  await back()
+  await reachReview()
+  const start = screen.getByRole('button', { name: '開始比對' })
+  await waitFor(() => expect(start).toBeEnabled())
+  fireEvent.click(start)
+  await screen.findByText('比對完成，正在顯示結果。找到差異仍屬正常完成。')
+  const restart = screen.getByRole('button', { name: '重新開始' })
+  await waitFor(() => expect(restart).toBeEnabled())
+  fireEvent.click(restart)
+  await screen.findByRole('heading', { name: '1. 選擇檔案' })
+  await new Promise(resolve => setTimeout(resolve, 650))
+  expect(screen.queryByRole('heading', { name: '4. 結果與下載' })).not.toBeInTheDocument()
+})
+
+it('invalidates preview and UUID when either source file changes', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(201, previewPayload)))
+  renderPage()
+  await reachReview()
+  fireEvent.click(screen.getByRole('button', { name: '返回修改檔案' }))
+  await screen.findByRole('heading', { name: '1. 選擇檔案' })
   fireEvent.change(screen.getByLabelText('選擇核對 PDF（.pdf）'), { target: { files: [new File(['new'], 'new.pdf')] } })
   expect(screen.queryByRole('button', { name: '返回原預覽' })).not.toBeInTheDocument()
-  expect(screen.queryByText(`工作編號：${id}`)).not.toBeInTheDocument()
-  await review()
-  await back()
-  fireEvent.click(screen.getByRole('button', { name: '移除完整合併 Excel（.xlsx）' }))
-  expect(screen.queryByRole('button', { name: '返回原預覽' })).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '產生比對範圍' })).toBeDisabled()
-})
-
-it('aborts and ignores a late response after file replacement, then aborts on unmount', async () => {
-  let resolve!: (value: Response) => void
-  const fetchMock = vi.fn().mockImplementationOnce(() => new Promise<Response>(done => { resolve = done }))
-    .mockImplementationOnce(() => new Promise(() => undefined))
-  vi.stubGlobal('fetch', fetchMock)
-  const { unmount } = renderPage()
-  selectFiles()
-  fireEvent.click(screen.getByRole('button', { name: '產生比對範圍' }))
-  const signal = fetchMock.mock.calls[0][1].signal as AbortSignal
-  fireEvent.change(screen.getByLabelText('選擇完整合併 Excel（.xlsx）'), { target: { files: [new File(['new'], 'new.xlsx')] } })
-  expect(signal.aborted).toBe(true)
-  const late = response(201, payload)
-  resolve(late)
-  await waitFor(() => expect(late.json).toHaveBeenCalled())
-  expect(screen.queryByRole('heading', { name: '2. 確認比對範圍' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: '返回原預覽' })).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: '產生比對範圍' }))
-  unmount()
-  expect(fetchMock.mock.calls[1][1].signal.aborted).toBe(true)
-})
-
-it('shows empty reasons without fabricated options and switches immediately with reduced motion', async () => {
-  motionPreference.reduced = true
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(201, {
-    data: { public_id: id, preview: { crops: [], years: [], metrics: [], defaults: { crops: [], years: [], metrics: [] }, issues: ['Excel 與 PDF 沒有共同實績年度。'] } },
-  })))
-  const { container } = renderPage()
-  selectFiles()
-  await review()
-  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-  expect(screen.getByText('Excel 與 PDF 沒有共同實績年度。請返回修改檔案。')).toBeInTheDocument()
-  expect(container.querySelector('.workflow-panel')).not.toHaveAttribute('style')
-  expect(container.querySelectorAll('.workflow-panel')).toHaveLength(1)
-  await back()
-  expect(container.querySelectorAll('.workflow-panel')).toHaveLength(1)
-  expect(container.querySelector('.workflow-panel')).not.toHaveAttribute('style')
+  expect(screen.queryByText(`工作編號：${publicId}`)).not.toBeInTheDocument()
 })

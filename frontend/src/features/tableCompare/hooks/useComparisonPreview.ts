@@ -20,13 +20,17 @@ export function useComparisonPreview() {
   }, [])
   useEffect(() => invalidate, [invalidate])
 
-  function changeFile(field: CompareFileField, file: File | null) {
+  const resetJob = useCallback(() => {
     invalidate()
-    setFiles(current => ({ ...current, [field]: file }))
     setJob(null)
     setSelection(emptyScope())
     setError(null)
     setLoading(false)
+  }, [invalidate])
+
+  function changeFile(field: CompareFileField, file: File | null) {
+    resetJob()
+    setFiles(current => ({ ...current, [field]: file }))
   }
 
   async function upload(): Promise<boolean> {
@@ -43,7 +47,6 @@ export function useComparisonPreview() {
       const result = await createComparisonPreview(files.excel_file, files.pdf_file, request.signal)
       if (id !== requestId.current) return false
       setJob(result)
-      // Initialize once per accepted response, never during render or on return.
       setSelection({
         crops: [...result.preview.defaults.crops],
         years: [...result.preview.defaults.years],
@@ -63,5 +66,5 @@ export function useComparisonPreview() {
     }
   }
 
-  return { files, job, selection, setSelection, error, loading, changeFile, upload }
+  return { files, job, selection, setSelection, error, loading, changeFile, upload, resetJob }
 }

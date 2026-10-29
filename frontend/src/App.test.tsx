@@ -130,7 +130,7 @@ describe('application routes', () => {
   // 針對 card link、path、placeholder 進行測試
   it.each([
     ['前往生產量值整併', '/volume-price-merge', '1. 選擇檔案', '← 返回工作入口'],
-    ['前往 PDF／XLSX 資料比對（上傳與預覽）', '/table-compare', '1. 選擇檔案', '← 返回工作入口'],
+    ['查看 DOCX／XLSX 表格比對功能說明（規劃中）', '/table-compare', '1. 選擇檔案', '← 返回工作入口'],
   ])('navigates with %s and returns home', (linkName, path, pageHeading, returnLinkName) => {
     renderRoute()
     // 確認點擊整張卡片的連結
