@@ -1,4 +1,5 @@
 import type { ComparisonRow } from '../types'
+import { getComparisonStatusGroup } from '../resultPresentation'
 
 interface Props {
   rows: ComparisonRow[]
@@ -12,7 +13,7 @@ function value(value: string | null) {
 export default function ComparisonResultTable({ rows, rowCount }: Props) {
   if (rows.length === 0) return <p className="compare-empty-result">本次範圍沒有比對明細。</p>
   return (
-    <div className="compare-result-table-wrap" tabIndex={0} aria-label="比對結果表格，可水平捲動">
+    <div className="compare-result-table-wrap" tabIndex={0} aria-label="比對結果表格，可垂直及水平捲動">
       <table className="compare-result-table">
         <caption>本次完整比對結果，共 {rowCount} 筆</caption>
         <thead>
@@ -28,7 +29,10 @@ export default function ComparisonResultTable({ rows, rowCount }: Props) {
               <th scope="row">{row.crop}</th>
               <td>{row.year}</td><td>{row.metric}</td><td>{value(row.pdf_unit)}</td>
               <td>{value(row.pdf_value)}</td><td>{value(row.excel_unit)}</td>
-              <td>{value(row.excel_value)}</td><td>{row.status}</td>
+              <td>{value(row.excel_value)}</td>
+              <td className={`compare-result-status compare-result-status--${getComparisonStatusGroup(row.status)}`}>
+                {row.status}
+              </td>
             </tr>
           ))}
         </tbody>

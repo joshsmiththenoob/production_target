@@ -3,7 +3,11 @@ import { AnimatePresence, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router'
 import CompareFilePicker from '../features/tableCompare/components/CompareFilePicker'
 import ComparePanel from '../features/tableCompare/components/ComparePanel'
+import ComparisonIssues from '../features/tableCompare/components/ComparisonIssues'
 import ComparisonResultTable from '../features/tableCompare/components/ComparisonResultTable'
+import ComparisonResultSummary from '../features/tableCompare/components/ComparisonResultSummary'
+import ComparisonScopeSummary from '../features/tableCompare/components/ComparisonScopeSummary'
+import ComparisonStatusSummary from '../features/tableCompare/components/ComparisonStatusSummary'
 import ScopeChoices from '../features/tableCompare/components/ScopeChoices'
 import { useComparisonPreview } from '../features/tableCompare/hooks/useComparisonPreview'
 import { useComparisonRun } from '../features/tableCompare/hooks/useComparisonRun'
@@ -11,16 +15,6 @@ import type { CompareFileField, ComparisonRunSnapshot } from '../features/tableC
 
 const steps = ['選擇檔案', '確認比對範圍', '執行比對', '結果與下載']
 type Step = 1 | 2 | 3 | 4
-
-function ScopeSummary({ snapshot }: { snapshot: ComparisonRunSnapshot }) {
-  return (
-    <dl className="compare-submitted-scope">
-      <div><dt>作物</dt><dd>{snapshot.scope.crops.join('、')}</dd></div>
-      <div><dt>年度</dt><dd>{snapshot.scope.years.join('、')}</dd></div>
-      <div><dt>指標</dt><dd>{snapshot.scope.metrics.join('、')}</dd></div>
-    </dl>
-  )
-}
 
 export default function TableComparePage() {
   const workflow = useComparisonPreview()
@@ -205,43 +199,29 @@ export default function TableComparePage() {
       </>
     )
   } else {
-    const statusCounts = new Map<string, number>()
-    for (const row of comparison.result?.rows ?? []) {
-      statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1)
-    }
     content = (
-      <>
-        <h2 ref={heading} tabIndex={-1}>4. {steps[3]}</h2>
-        {comparison.result && comparison.snapshot ? <>
-          <p className="work-surface__intro">以下為本次 run 回傳的完整比對結果，保留原始順序與文字值。</p>
-          <p className="pairing-job-id">工作編號：{comparison.snapshot.publicId}</p>
-          <section className="compare-result-summary" aria-labelledby="compare-result-summary-title">
-            <h3 id="compare-result-summary-title">本次結果摘要</h3>
-            <p>共 {comparison.result.row_count} 筆比對明細。</p>
-            <ScopeSummary snapshot={comparison.snapshot} />
-            {statusCounts.size > 0 && <ul className="compare-status-counts">
-              {[...statusCounts].map(([label, count]) => <li key={label}><strong>{label}</strong>：{count} 筆</li>)}
-            </ul>}
-          </section>
-          <section className="compare-issues" aria-labelledby="submitted-issues-title">
-            <h3 id="submitted-issues-title">本次來源解析提醒</h3>
-            <p>缺漏狀態是解析資料的比對結果；未解析頁面仍以下列提醒為準。</p>
-            {comparison.snapshot.issues.length > 0
-              ? <ul>{comparison.snapshot.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>
-              : <p>本次預覽沒有解析提醒。</p>}
-          </section>
-          <ComparisonResultTable rows={comparison.result.rows} rowCount={comparison.result.row_count} />
-          <div className="compare-download" aria-labelledby="compare-download-title">
-            <h3 id="compare-download-title">下載本次結果</h3>
-            <button type="button" disabled aria-describedby="compare-download-unavailable">下載比對結果 Excel</button>
-            <p id="compare-download-unavailable">下載功能尚未開放：後端尚未註冊可用的 table-compare download API。</p>
+      <div className="compare-result-view">
+        <div className="compare-result-header">
+          <div>
+            <h2 ref={heading} tabIndex={-1}>4. {steps[3]}</h2>
+            <p>完整保留本次 run 回傳的順序與文字值。</p>
           </div>
-          <div className="work-action-bar">
-            <p>重新開始會保留已選檔案，但必須建立新工作並取得新的工作編號。</p>
+          <div className="compare-result-actions">
+            <div className="compare-download-state">
+              <button type="button" disabled aria-describedby="compare-download-pending">下載比對結果 Excel</button>
+              <span id="compare-download-pending">Excel 下載準備中</span>
+            </div>
             <button type="button" className="button--secondary" disabled={transitioning} onClick={restart}>重新開始</button>
           </div>
+        </div>
+        {comparison.result && comparison.snapshot ? <>
+          <ComparisonResultSummary result={comparison.result} />
+          <ComparisonScopeSummary snapshot={comparison.snapshot} />
+          <ComparisonStatusSummary rows={comparison.result.rows} />
+          <ComparisonResultTable rows={comparison.result.rows} rowCount={comparison.result.row_count} />
+          <ComparisonIssues issues={comparison.snapshot.issues} />
         </> : <div className="form-error" role="alert"><strong>找不到本次結果</strong><p>請重新建立工作。</p></div>}
-      </>
+      </div>
     )
   }
 
@@ -252,7 +232,7 @@ export default function TableComparePage() {
   )
 
   return (
-    <div className="work-page table-compare-page">
+    <div className={`work-page table-compare-page${step === 4 ? ' table-compare-page--results' : ''}`}>
       <Link className="work-page__back-link" to="/">← 返回工作入口</Link>
       <header className="work-page__header">
         <h1>PDF／XLSX 資料比對</h1>
@@ -269,11 +249,11 @@ export default function TableComparePage() {
           </li>
         })}
       </ol>
-      <div className="table-compare-layout">
+      <div className={`table-compare-layout${step === 4 ? ' table-compare-layout--results' : ''}`}>
         <div className="workflow-panel-slot compare-panel-slot" data-direction={direction}>
           {reducedMotion ? panel : <AnimatePresence initial={false} mode="wait" custom={direction}>{panel}</AnimatePresence>}
         </div>
-        <aside className="file-preparation" aria-labelledby="compare-guide-title">
+        {step !== 4 && <aside className="file-preparation" aria-labelledby="compare-guide-title">
           <h2 id="compare-guide-title">{step < 3 ? '檔案準備說明' : step === 3 ? '執行期間說明' : '結果閱讀說明'}</h2>
           {step < 3 ? <ul>
             <li>Excel：請使用第一模組的完整合併 .xlsx，非單一作物查詢下載檔。</li>
@@ -288,7 +268,7 @@ export default function TableComparePage() {
             <li>數值 0 與來源標記會原樣呈現，空值顯示為「—」。</li>
             <li>本版直接顯示全部結果，不提供第二組查詢或篩選。</li>
           </ul>}
-        </aside>
+        </aside>}
       </div>
     </div>
   )
