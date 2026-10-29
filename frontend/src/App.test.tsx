@@ -130,7 +130,7 @@ describe('application routes', () => {
   // 針對 card link、path、placeholder 進行測試
   it.each([
     ['前往生產量值整併', '/volume-price-merge', '1. 選擇檔案', '← 返回工作入口'],
-    ['查看 DOCX／XLSX 表格比對功能說明（規劃中）', '/table-compare', '尚未開放', '返回首頁'],
+    ['查看 DOCX／XLSX 表格比對功能說明（規劃中）', '/table-compare', '1. 選擇檔案', '← 返回工作入口'],
   ])('navigates with %s and returns home', (linkName, path, pageHeading, returnLinkName) => {
     renderRoute()
     // 確認點擊整張卡片的連結
@@ -496,7 +496,7 @@ describe('application routes', () => {
 
   it.each([
     ['/volume-price-merge', '生產量值整併'],
-    ['/table-compare', 'DOCX／XLSX 表格比對'],
+    ['/table-compare', 'PDF／XLSX 資料比對'],
   ])('renders a direct visit to %s with shared navigation', (path, title) => {
     renderRoute(path)
     expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
