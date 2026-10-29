@@ -32,6 +32,9 @@ from django.utils import timezone
 
 from apps.jobs.models import Job
 from ...models import CompareInputFile, TableCompareJob
+from ..handlers.excel_handler import ExcelHandler, ProductNotFoundError
+from ..handlers.workbook_reader import WorkbookReader
+from ..handlers.re_handler import REHandler
 
 
 
@@ -46,6 +49,8 @@ class ComparingService:
 
     def __init__(self):
         self._table_comparactor = TableComparactor()
+        self.__excel_handler = ExcelHandler()
+        self.__RE_handler = REHandler()
 
 
     def run(self, public_id: UUID, *, crops, years, metrics) -> dict:
@@ -221,7 +226,7 @@ class ComparingService:
         }
 
 
-    def get_workbook(self, public_id: UUID, product: str) -> dict:
+    def get_workbook(self, public_id: UUID) -> dict:
         """
         Create workbook depended on merged result in specific job.
         """
@@ -230,20 +235,20 @@ class ComparingService:
         # Get MergeJob for accessing result data 
         compare_job = TableCompareJob.objects.get(job_id=job.pk)
         # Then track to all input files of specific MergeJob to obtain information of input file
-        source_file_count = CompareInputFile.objects.filter(merge_job=compare_job,).count()
+        source_file_count = CompareInputFile.objects.filter(compare_job=compare_job,).count()
 
 
         workbook_result_bytes = None
         # Check if there is query condition for product or not
 
-        workbook_result_bytes = self.__excel_handler.build_workbook(compare_job.result_data, compare_job.pairing_preview, source_file_count= source_file_count)
+        workbook_result_bytes = self.__excel_handler.build_comparison_workbook(compare_job.result_data, compare_job.pairing_preview, source_file_count= source_file_count)
 
 
         # Set download file information
         # download time: need to use local time instead of UTC time. 
         # timezone.now() -> UTC time; localtime() -> local time base on settings ex: Taipiei
         date_prefix = self.__RE_handler.format_roc_date(timezone.localdate())
-        file_name = f"合併結果_{product}.xlsx" if product else "合併結果.xlsx" 
+        file_name = f"比對結果.xlsx" 
         file_name = date_prefix + file_name
     
 
@@ -267,4 +272,8 @@ class ComparisonJobExpired(CompareJobError):
 
 
 class ComparisonJobNotRunnable(CompareJobError):
+    pass
+
+
+class ComparisonJobNotInStatus(MergeJobError):
     pass

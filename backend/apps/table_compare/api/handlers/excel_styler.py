@@ -50,3 +50,13 @@ class ExcelStyler:
         for cell in sheet[1]:
             cell.fill = PatternFill("solid", fgColor="1F4E79")
             cell.font = Font(name="Microsoft JhengHei", bold=True, color="FFFFFF")
+
+
+    def apply_comparison_style(self, sheet, total_rows: int, total_columns:int ) -> None:
+        for row in sheet.iter_rows(min_row=1, max_row=total_rows, min_col=1, max_col=total_columns):
+            for cell in row:
+                cell.font = Font(name="Microsoft JhengHei")
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+        for cell in sheet[1]:
+            cell.fill = PatternFill("solid", fgColor="1F4E79")
+            cell.font = Font(name="Microsoft JhengHei", bold=True, color="FFFFFF")

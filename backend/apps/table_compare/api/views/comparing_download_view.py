@@ -24,7 +24,9 @@ from apps.table_compare.api.services.comparing_service import (
     ComparingService,
     CompareJobError,
     ComparisonJobExpired,
-    ComparisonJobNotRunnable
+    ComparisonJobNotRunnable,
+    ComparisonJobNotInStatus,
+    ComparisonInputError
 )
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
@@ -82,21 +84,21 @@ class ComparingDownloadView(APIView):
                     message= "找不到指定的工作。",
                 )
 
-        except MergeJobExpired:
+        except ComparisonJobExpired:
             return ResponseFormatter.error_response(
                     code= "job_expired",
                     http_status= status.HTTP_410_GONE,
                     message= "工作已過期，請重新上傳檔案。",
                 )
 
-        except MergeJobNotInStatus:
+        except ComparisonJobNotInStatus:
             return ResponseFormatter.error_response(
                     code= "job_not_runnable",
                     http_status= status.HTTP_409_CONFLICT,
                     message= "目前的工作狀態無法執行合併。",
                 )
 
-        except MergeInputInvalid:
+        except ComparisonInputError:
             return ResponseFormatter.error_response(
                     code="invalid_product",
                     http_status=status.HTTP_400_BAD_REQUEST,
