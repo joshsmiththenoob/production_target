@@ -41,9 +41,10 @@ class DownloadContentNegotiation(DefaultContentNegotiation):
 
 # Create your views here.
 @method_decorator(never_cache, name="dispatch")
-class MergingDownloadView(APIView):
+class ComparingDownloadView(APIView):
     authentication_classes: list[type] = []
     permission_classes: list[type] = []
+    # Specify the content_negotiation_class of APIView to provide file for downloading
     content_negotiation_class = DownloadContentNegotiation
 
 
@@ -56,7 +57,7 @@ class MergingDownloadView(APIView):
         summary="下載生產量值整併",
         # # request payload
         # request= None,
-        parameters= [MergingDownloadRequestSerializer],
+        # parameters= [MergingDownloadRequestSerializer],
         responses={
             (200, XLSX_TYPE): OpenApiTypes.BINARY,
             400: ErrorResponseSerializer,
@@ -65,7 +66,7 @@ class MergingDownloadView(APIView):
             410: ErrorResponseSerializer,
             500: ErrorResponseSerializer,
         },
-        tags=["Volume Price Merge"],
+        tags=["Table Compare"],
     )
     def get(self, request: Request, public_id: UUID) -> Response:
         input_serializer = MergingDownloadRequestSerializer(data=request.query_params)

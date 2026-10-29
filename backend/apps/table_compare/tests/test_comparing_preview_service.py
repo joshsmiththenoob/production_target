@@ -119,7 +119,7 @@ class ComparingCoreServiceTests(TestCase):
         pdf_adapter.return_value.load.return_value = make_frame([
             ['果品', '香蕉', 111, '產量', '公噸', 12],
         ])
-        result = ComparingService().compare(
+        result = ComparingService()._compare(
             SimpleUploadedFile('anonymous.xlsx', b'excel'),
             SimpleUploadedFile('anonymous.pdf', b'pdf'),
             crops=['香蕉'], years=[111], metrics=['產量'],

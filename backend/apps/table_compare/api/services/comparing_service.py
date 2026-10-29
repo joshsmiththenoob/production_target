@@ -190,6 +190,7 @@ class ComparingService:
 
         # 第一版先阻止有歧義的資料進行比對
         # 檢查本次選定範圍
+        has_selected_records = False
         for source, frame in [("Excel", excel_df), ("PDF", pdf_df)]:
             selected = frame.loc[
                 frame["作物"].isin(scope["crops"])
@@ -197,10 +198,16 @@ class ComparingService:
                 & frame["指標"].isin(scope["metrics"])
             ]
 
+            if not selected.empty:
+                has_selected_records = True
+
             if selected.duplicated(self._table_comparactor.KEYS).any():
                 raise ComparisonInputError(
                     f"{source} 的選定範圍出現重複比對鍵，請先確認來源資料。"
                 )
+
+        if not has_selected_records:
+            raise ComparisonInputError("選定範圍沒有可比對資料。")
 
 
         result = self._table_comparactor.start_comparing(excel_df, pdf_df, **scope)

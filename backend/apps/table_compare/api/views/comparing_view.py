@@ -103,10 +103,7 @@ class ComparingView(APIView):
                 message=str(error),
             )
 
-        except Exception as e:
-            print(e)
-            # logger.exception("Comparison failed: %s", public_id)
-
+        except Exception:
             return ResponseFormatter.error_response(
                 code="comparison_failed",
                 http_status=500,

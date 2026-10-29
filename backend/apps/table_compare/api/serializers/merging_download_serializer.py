@@ -1,7 +1,7 @@
-from rest_framework import serializers
+# from rest_framework import serializers
 
-class MergingDownloadRequestSerializer(serializers.Serializer):
-    product = serializers.CharField(default="", allow_blank=True, trim_whitespace=True)
+# class MergingDownloadRequestSerializer(serializers.Serializer):
+#     product = serializers.CharField(default="", allow_blank=True, trim_whitespace=True)
 
 
 # class MergingDownloadSerializer(serializers.Serializer):

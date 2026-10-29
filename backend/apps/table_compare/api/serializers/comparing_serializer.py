@@ -112,6 +112,7 @@ class ComparisonDataSerializer(serializers.Serializer):
 class ComparisonResponseSerializer(serializers.Serializer):
     data = ComparisonDataSerializer()
     message = serializers.CharField()
+    meta = serializers.DictField(allow_null=True)
 
 
 
