@@ -1707,6 +1707,10 @@ button:hover {
   font-size: 0.85rem;
 }
 
+.compare-download-state .compare-download-error {
+  color: var(--color-error);
+}
+
 .compare-result-actions button:disabled,
 .compare-result-actions button:disabled:hover {
   border-color: var(--color-border-strong);

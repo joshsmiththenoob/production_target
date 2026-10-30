@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import {
-  ComparisonApiError,
+  ComparisonDownloadError,
   createComparisonPreview,
   downloadComparisonWorkbook,
   runComparison,
@@ -86,6 +86,7 @@ it('keeps run field errors separate from upload errors', async () => {
 
 it('prepares the documented download request, UTF-8 filename and blob safely', async () => {
   const blob = new Blob(['xlsx'])
+  const signal = new AbortController().signal
   const fetchMock = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -97,23 +98,94 @@ it('prepares the documented download request, UTF-8 filename and blob safely', a
   } as unknown as Response)
   vi.stubGlobal('fetch', fetchMock)
 
-  await expect(downloadComparisonWorkbook(publicId, new AbortController().signal)).resolves.toEqual({
+  await expect(downloadComparisonWorkbook(publicId, signal)).resolves.toEqual({
     blob,
     filename: '比對結果.xlsx',
   })
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/v1/table-compare/jobs/${publicId}/download/`,
-    expect.objectContaining({ method: 'GET', cache: 'no-store' }),
+    {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      signal,
+    },
   )
 })
 
-it('never accepts JSON or HTML as an xlsx download', async () => {
+it.each([
+  ['application/json', new Blob(['{"code":"internal"}'])],
+  ['text/html', new Blob(['<h1>proxy error</h1>'])],
+  ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', new Blob([])],
+])('never accepts %s or an empty blob as an xlsx download', async (contentType, blob) => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
-    headers: new Headers({ 'Content-Type': 'application/json' }),
-    blob: vi.fn(),
+    headers: new Headers({ 'Content-Type': contentType }),
+    blob: vi.fn().mockResolvedValue(blob),
   } as unknown as Response))
   await expect(downloadComparisonWorkbook(publicId, new AbortController().signal))
-    .rejects.toEqual(expect.objectContaining<Partial<ComparisonApiError>>({ code: 'invalid_download' }))
+    .rejects.toEqual(expect.objectContaining<Partial<ComparisonDownloadError>>({
+      code: 'invalid_download',
+      jobUnavailable: false,
+    }))
+})
+
+it.each([
+  [404, 'job_not_found', 'job_not_found', true],
+  [410, 'job_expired', 'job_expired', true],
+  [409, 'job_not_runnable', 'job_not_runnable', false],
+  [500, 'internal_server_error', 'download_failed', false],
+  [404, 'job_expired', 'download_failed', false],
+])('maps trusted download errors without reusing run recovery (%s %s)', async (
+  status,
+  responseCode,
+  expectedCode,
+  jobUnavailable,
+) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(status, {
+    code: responseCode,
+    message: 'Traceback /srv/private',
+    field_errors: {},
+  })))
+
+  await expect(downloadComparisonWorkbook(
+    publicId,
+    new AbortController().signal,
+  )).rejects.toMatchObject({
+    code: expectedCode,
+    jobUnavailable,
+  })
+})
+
+it('uses a safe server filename and falls back for unsafe names', async () => {
+  const response = (disposition: string) => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': disposition,
+    }),
+    blob: vi.fn().mockResolvedValue(new Blob(['xlsx'])),
+  } as unknown as Response)
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response('attachment; filename="comparison.xlsx"'))
+    .mockResolvedValueOnce(response('attachment; filename="../private.xlsx"'))
+    .mockResolvedValueOnce(response("attachment; filename*=UTF-8''%E0%A4%A"))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await expect(downloadComparisonWorkbook(
+    publicId,
+    new AbortController().signal,
+  )).resolves.toMatchObject({ filename: 'comparison.xlsx' })
+  await expect(downloadComparisonWorkbook(
+    publicId,
+    new AbortController().signal,
+  )).resolves.toMatchObject({ filename: 'table-comparison-result.xlsx' })
+  await expect(downloadComparisonWorkbook(
+    publicId,
+    new AbortController().signal,
+  )).resolves.toMatchObject({ filename: 'table-comparison-result.xlsx' })
 })

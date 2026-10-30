@@ -9,6 +9,7 @@ import type {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const DOWNLOAD_FALLBACK = 'table-comparison-result.xlsx'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -88,6 +89,27 @@ export class ComparisonApiError extends Error {
   }
 }
 
+export class ComparisonDownloadError extends Error {
+  readonly code: string
+  readonly status: number | null
+  readonly jobUnavailable: boolean
+
+  constructor(code: string, status: number | null = null) {
+    const messages: Record<string, string> = {
+      job_not_found: '找不到這個比對工作，請重新開始建立新工作。',
+      job_expired: '這個比對工作已過期，請重新開始建立新工作。',
+      job_not_runnable: '本次結果目前無法下載，請稍後重試下載或重新開始。',
+      invalid_download: '下載失敗，請稍後再試。',
+      download_failed: '下載失敗，請稍後再試。',
+    }
+    super(messages[code] ?? messages.download_failed)
+    this.name = 'ComparisonDownloadError'
+    this.code = code
+    this.status = status
+    this.jobUnavailable = code === 'job_not_found' || code === 'job_expired'
+  }
+}
+
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
@@ -130,30 +152,29 @@ export async function runComparison(
 
 function safeFilename(value: string): string {
   const invalidCharacters = '\\/:*?"<>|'
-  const filename = [...value]
-    .map(character => character.charCodeAt(0) < 32 || invalidCharacters.includes(character) ? '_' : character)
-    .join('')
-    .trim()
-  return filename.toLowerCase().endsWith('.xlsx') && filename.length > 5
+  const filename = value.trim()
+  const unsafe = [...filename].some(character =>
+    character.charCodeAt(0) < 32 || invalidCharacters.includes(character))
+  return !unsafe && filename.toLowerCase().endsWith('.xlsx') &&
+    filename.length > 5 && filename.length <= 180
     ? filename
-    : 'table-comparison-result.xlsx'
+    : DOWNLOAD_FALLBACK
 }
 
 function responseFilename(header: string | null): string {
-  if (!header) return 'table-comparison-result.xlsx'
+  if (!header) return DOWNLOAD_FALLBACK
   const utf8 = header.match(/filename\*\s*=\s*UTF-8''([^;]+)/i)?.[1]
   if (utf8) {
     try {
       return safeFilename(decodeURIComponent(utf8.replace(/^"|"$/g, '')))
     } catch {
-      return 'table-comparison-result.xlsx'
+      return DOWNLOAD_FALLBACK
     }
   }
   const plain = header.match(/filename\s*=\s*(?:"([^"]+)"|([^;]+))/i)
   return safeFilename((plain?.[1] ?? plain?.[2] ?? '').trim())
 }
 
-// The UI keeps this dormant until Django registers and verifies the download route.
 export async function downloadComparisonWorkbook(
   publicId: string, signal: AbortSignal,
 ): Promise<ComparisonDownload> {
@@ -165,13 +186,28 @@ export async function downloadComparisonWorkbook(
   })
   if (!response.ok) {
     const payload = await readJson(response)
-    const code = isRecord(payload) && typeof payload.code === 'string' ? payload.code : 'download_failed'
-    throw new ComparisonApiError(code, { status: response.status })
+    const responseCode = isRecord(payload) && typeof payload.code === 'string'
+      ? payload.code
+      : null
+    const code = response.status === 404 && responseCode === 'job_not_found'
+      ? 'job_not_found'
+      : response.status === 410 && responseCode === 'job_expired'
+        ? 'job_expired'
+        : response.status === 409 && responseCode === 'job_not_runnable'
+          ? 'job_not_runnable'
+          : 'download_failed'
+    throw new ComparisonDownloadError(code, response.status)
   }
   const contentType = response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()
-  if (contentType !== XLSX_TYPE) throw new ComparisonApiError('invalid_download', { status: response.status })
+  if (contentType !== XLSX_TYPE) {
+    throw new ComparisonDownloadError('invalid_download', response.status)
+  }
+  const blob = await response.blob()
+  if (blob.size === 0) {
+    throw new ComparisonDownloadError('invalid_download', response.status)
+  }
   return {
-    blob: await response.blob(),
+    blob,
     filename: responseFilename(response.headers.get('Content-Disposition')),
   }
 }

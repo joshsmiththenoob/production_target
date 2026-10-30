@@ -9,9 +9,28 @@ vi.mock('motion/react', async importOriginal => {
   return { ...actual, useReducedMotion: () => motionPreference.reduced }
 })
 
+const originalCreateObjectURL = URL.createObjectURL
+const originalRevokeObjectURL = URL.revokeObjectURL
+
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  if (originalCreateObjectURL) {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: originalCreateObjectURL,
+    })
+  } else {
+    Reflect.deleteProperty(URL, 'createObjectURL')
+  }
+  if (originalRevokeObjectURL) {
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: originalRevokeObjectURL,
+    })
+  } else {
+    Reflect.deleteProperty(URL, 'revokeObjectURL')
+  }
   motionPreference.reduced = true
 })
 
@@ -60,9 +79,38 @@ const largePreviewPayload = {
   meta: null,
 }
 const largeRunPayload = { data: { row_count: 88, rows: largeRows }, message: '比對完成。', meta: null }
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 function response(status: number, value: unknown): Response {
   return { status, ok: status >= 200 && status < 300, json: vi.fn().mockResolvedValue(value) } as unknown as Response
+}
+
+function workbookResponse(filename = '115.10.30比對結果.xlsx'): Response {
+  return {
+    status: 200,
+    ok: true,
+    headers: new Headers({
+      'Content-Type': XLSX_TYPE,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    }),
+    blob: vi.fn().mockResolvedValue(new Blob(['xlsx'])),
+  } as unknown as Response
+}
+
+function mockBrowserDownload() {
+  const createObjectURL = vi.fn().mockReturnValue('blob:comparison-result')
+  const revokeObjectURL = vi.fn()
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: createObjectURL,
+  })
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: revokeObjectURL,
+  })
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click')
+    .mockImplementation(() => undefined)
+  return { createObjectURL, revokeObjectURL, click }
 }
 
 function selectFiles() {
@@ -81,6 +129,16 @@ async function reachReview() {
   selectFiles()
   fireEvent.click(screen.getByRole('button', { name: '產生比對範圍' }))
   const heading = await screen.findByRole('heading', { name: '2. 確認比對範圍' })
+  await waitFor(() => expect(heading).toHaveFocus())
+  return heading
+}
+
+async function reachResults() {
+  await reachReview()
+  fireEvent.click(screen.getByRole('button', { name: '開始比對' }))
+  const heading = await screen.findByRole('heading', {
+    name: '4. 結果與下載',
+  })
   await waitFor(() => expect(heading).toHaveFocus())
   return heading
 }
@@ -147,8 +205,8 @@ it('posts one immutable run snapshot and moves a fast reduced-motion success to 
     .map(item => item.textContent)).toContain('有差異1 筆數值不同或單位不同')
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '查詢' })).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '下載比對結果 Excel' })).toBeDisabled()
-  expect(screen.getByText('Excel 下載準備中')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '下載比對結果 Excel' })).toBeEnabled()
+  expect(screen.queryByText('Excel 下載準備中')).not.toBeInTheDocument()
   expect(fetchMock).toHaveBeenCalledTimes(2)
 })
 
@@ -224,7 +282,10 @@ it('shows zero metrics and a distinct no-issues message for an empty successful 
   renderPage()
   await reachReview()
   fireEvent.click(screen.getByRole('button', { name: '開始比對' }))
-  await screen.findByRole('heading', { name: '4. 結果與下載' })
+  const heading = await screen.findByRole('heading', {
+    name: '4. 結果與下載',
+  })
+  await waitFor(() => expect(heading).toHaveFocus())
 
   const overview = screen.getByRole('region', { name: '本次結果摘要' })
   expect(within(overview).getAllByText('0')).toHaveLength(2)
@@ -232,6 +293,7 @@ it('shows zero metrics and a distinct no-issues message for an empty successful 
   expect(screen.queryByRole('table')).not.toBeInTheDocument()
   expect(screen.getByText('來源解析提醒（0）')).toBeInTheDocument()
   expect(screen.getByText('目前沒有來源解析提醒。')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '下載比對結果 Excel' })).toBeEnabled()
 })
 
 it('shows the 500ms success state in normal motion before entering results', async () => {
@@ -344,4 +406,238 @@ it('invalidates preview and UUID when either source file changes', async () => {
   fireEvent.change(screen.getByLabelText('選擇核對 PDF（.pdf）'), { target: { files: [new File(['new'], 'new.pdf')] } })
   expect(screen.queryByRole('button', { name: '返回原預覽' })).not.toBeInTheDocument()
   expect(screen.queryByText(`工作編號：${publicId}`)).not.toBeInTheDocument()
+})
+
+it('downloads the successful snapshot once with Blob, server filename and URL cleanup', async () => {
+  let resolveDownload!: (value: Response) => void
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => {
+      resolveDownload = resolve
+    }))
+  vi.stubGlobal('fetch', fetchMock)
+  const browserDownload = mockBrowserDownload()
+  renderPage()
+  await reachResults()
+
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  const download = screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  })
+  fireEvent.click(download)
+  fireEvent.click(download)
+
+  expect(screen.getByRole('button', { name: '準備下載中…' }))
+    .toHaveAttribute('aria-busy', 'true')
+  expect(fetchMock).toHaveBeenCalledTimes(3)
+  const [url, options] = fetchMock.mock.calls[2]
+  expect(url).toBe(
+    `/api/v1/table-compare/jobs/${publicId}/download/`,
+  )
+  expect(options).toEqual({
+    method: 'GET',
+    cache: 'no-store',
+    headers: { Accept: XLSX_TYPE },
+    signal: expect.any(AbortSignal),
+  })
+  expect('body' in options).toBe(false)
+  expect(String(url)).not.toContain('?')
+
+  resolveDownload(workbookResponse())
+
+  expect(await screen.findByText(
+    '已開始下載：115.10.30比對結果.xlsx',
+  )).toBeInTheDocument()
+  expect(browserDownload.createObjectURL).toHaveBeenCalledTimes(1)
+  expect(browserDownload.click).toHaveBeenCalledTimes(1)
+  const anchor = browserDownload.click.mock.instances[0] as HTMLAnchorElement
+  expect(anchor.download).toBe('115.10.30比對結果.xlsx')
+  expect(anchor.href).toBe('blob:comparison-result')
+  await waitFor(() => {
+    expect(browserDownload.revokeObjectURL)
+      .toHaveBeenCalledWith('blob:comparison-result')
+  })
+  expect(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  })).toBeEnabled()
+  expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'))
+    .toHaveLength(2)
+})
+
+it.each([
+  [404, 'job_not_found', true, '找不到這個比對工作'],
+  [410, 'job_expired', true, '這個比對工作已過期'],
+  [409, 'job_not_runnable', false, '本次結果目前無法下載'],
+  [500, 'internal_server_error', false, '下載失敗'],
+])('keeps results readable for download error %s %s', async (
+  status,
+  code,
+  blocked,
+  expectedMessage,
+) => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload))
+    .mockResolvedValueOnce(response(status, {
+      code,
+      message: 'Traceback /srv/private',
+      field_errors: {},
+    }))
+  vi.stubGlobal('fetch', fetchMock)
+  renderPage()
+  await reachResults()
+
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(expectedMessage)
+  expect(alert).not.toHaveTextContent('Traceback')
+  expect(alert).not.toHaveTextContent('/srv')
+  expect(screen.getByRole('heading', {
+    name: '4. 結果與下載',
+  })).toBeInTheDocument()
+  expect(screen.getByRole('table')).toBeInTheDocument()
+  const download = screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  })
+  if (blocked) {
+    expect(download).toBeDisabled()
+    fireEvent.click(download)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  } else {
+    expect(download).toBeEnabled()
+  }
+})
+
+it('allows a failed download GET to retry without changing the successful run', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload))
+    .mockRejectedValueOnce(new Error('private network path'))
+    .mockResolvedValueOnce(workbookResponse('retry-result.xlsx'))
+  vi.stubGlobal('fetch', fetchMock)
+  const browserDownload = mockBrowserDownload()
+  renderPage()
+  await reachResults()
+
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '下載失敗，請稍後再試',
+  )
+  expect(screen.getByRole('table')).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+
+  expect(await screen.findByText(
+    '已開始下載：retry-result.xlsx',
+  )).toBeInTheDocument()
+  expect(browserDownload.click).toHaveBeenCalledTimes(1)
+  expect(fetchMock).toHaveBeenCalledTimes(4)
+  expect(screen.getByRole('heading', {
+    name: '4. 結果與下載',
+  })).toBeInTheDocument()
+})
+
+it('does not turn a 200 JSON response into a file and permits a later retry', async () => {
+  const invalidDownload = {
+    status: 200,
+    ok: true,
+    headers: new Headers({ 'Content-Type': 'application/json' }),
+    blob: vi.fn(),
+  } as unknown as Response
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload))
+    .mockResolvedValueOnce(invalidDownload)
+    .mockResolvedValueOnce(workbookResponse('valid.xlsx'))
+  vi.stubGlobal('fetch', fetchMock)
+  const browserDownload = mockBrowserDownload()
+  renderPage()
+  await reachResults()
+
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('下載失敗')
+  expect(browserDownload.createObjectURL).not.toHaveBeenCalled()
+
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+  expect(await screen.findByText('已開始下載：valid.xlsx'))
+    .toBeInTheDocument()
+  expect(browserDownload.createObjectURL).toHaveBeenCalledTimes(1)
+})
+
+it('invalidates a late download when restarting and keeps the selected files', async () => {
+  let resolveDownload!: (value: Response) => void
+  const lateResponse = workbookResponse('old-job.xlsx')
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => {
+      resolveDownload = resolve
+    }))
+  vi.stubGlobal('fetch', fetchMock)
+  const browserDownload = mockBrowserDownload()
+  renderPage()
+  const { excel, pdf } = selectFiles()
+  fireEvent.click(screen.getByRole('button', {
+    name: '產生比對範圍',
+  }))
+  const reviewHeading = await screen.findByRole('heading', {
+    name: '2. 確認比對範圍',
+  })
+  await waitFor(() => expect(reviewHeading).toHaveFocus())
+  fireEvent.click(screen.getByRole('button', { name: '開始比對' }))
+  const resultHeading = await screen.findByRole('heading', {
+    name: '4. 結果與下載',
+  })
+  await waitFor(() => expect(resultHeading).toHaveFocus())
+
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+  fireEvent.click(screen.getByRole('button', { name: '重新開始' }))
+  await screen.findByRole('heading', { name: '1. 選擇檔案' })
+
+  resolveDownload(lateResponse)
+  await waitFor(() => expect(lateResponse.blob).toHaveBeenCalled())
+  expect(browserDownload.createObjectURL).not.toHaveBeenCalled()
+  expect(browserDownload.click).not.toHaveBeenCalled()
+  expect(screen.queryByText('已開始下載：old-job.xlsx'))
+    .not.toBeInTheDocument()
+  expect(screen.getByText(`已保留：${excel.name}`)).toBeInTheDocument()
+  expect(screen.getByText(`已保留：${pdf.name}`)).toBeInTheDocument()
+})
+
+it('does not trigger a late file after the page unmounts', async () => {
+  let resolveDownload!: (value: Response) => void
+  const lateResponse = workbookResponse('unmounted.xlsx')
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(response(201, previewPayload))
+    .mockResolvedValueOnce(response(200, runPayload))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => {
+      resolveDownload = resolve
+    })))
+  const browserDownload = mockBrowserDownload()
+  const view = renderPage()
+  await reachResults()
+  fireEvent.click(screen.getByRole('button', {
+    name: '下載比對結果 Excel',
+  }))
+
+  view.unmount()
+  resolveDownload(lateResponse)
+
+  await waitFor(() => expect(lateResponse.blob).toHaveBeenCalled())
+  expect(browserDownload.createObjectURL).not.toHaveBeenCalled()
+  expect(browserDownload.click).not.toHaveBeenCalled()
 })

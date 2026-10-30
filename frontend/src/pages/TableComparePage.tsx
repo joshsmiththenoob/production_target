@@ -3,6 +3,7 @@ import { AnimatePresence, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router'
 import CompareFilePicker from '../features/tableCompare/components/CompareFilePicker'
 import ComparePanel from '../features/tableCompare/components/ComparePanel'
+import ComparisonDownloadActions from '../features/tableCompare/components/ComparisonDownloadActions'
 import ComparisonIssues from '../features/tableCompare/components/ComparisonIssues'
 import ComparisonResultTable from '../features/tableCompare/components/ComparisonResultTable'
 import ComparisonResultSummary from '../features/tableCompare/components/ComparisonResultSummary'
@@ -10,6 +11,7 @@ import ComparisonScopeSummary from '../features/tableCompare/components/Comparis
 import ComparisonStatusSummary from '../features/tableCompare/components/ComparisonStatusSummary'
 import ScopeChoices from '../features/tableCompare/components/ScopeChoices'
 import { useComparisonPreview } from '../features/tableCompare/hooks/useComparisonPreview'
+import { useComparisonDownload } from '../features/tableCompare/hooks/useComparisonDownload'
 import { useComparisonRun } from '../features/tableCompare/hooks/useComparisonRun'
 import type { CompareFileField, ComparisonRunSnapshot } from '../features/tableCompare/types'
 
@@ -19,6 +21,9 @@ type Step = 1 | 2 | 3 | 4
 export default function TableComparePage() {
   const workflow = useComparisonPreview()
   const comparison = useComparisonRun()
+  const comparisonDownload = useComparisonDownload(
+    comparison.snapshot?.publicId ?? null,
+  )
   const { files, job, selection, setSelection, loading, error } = workflow
   const [step, setStep] = useState<Step>(1)
   const [direction, setDirection] = useState(1)
@@ -75,6 +80,7 @@ export default function TableComparePage() {
 
   function changeFile(field: CompareFileField, file: File | null) {
     clearSuccessTimer()
+    comparisonDownload.reset()
     comparison.reset()
     workflow.changeFile(field, file)
   }
@@ -98,6 +104,7 @@ export default function TableComparePage() {
   function restart() {
     if (transitioning) return
     clearSuccessTimer()
+    comparisonDownload.reset()
     comparison.reset()
     workflow.resetJob()
     changeStep(1)
@@ -105,6 +112,11 @@ export default function TableComparePage() {
 
   const canStart = Boolean(job) && selection.crops.length > 0 && selection.years.length > 0 &&
     selection.metrics.length > 0 && !loading && !transitioning && comparison.status === 'idle'
+  const canDownload = comparison.status === 'success' &&
+    Boolean(comparison.result && comparison.snapshot) &&
+    !transitioning &&
+    comparisonDownload.status !== 'downloading' &&
+    !comparisonDownload.jobUnavailable
 
   let content
   if (step === 1) {
@@ -207,10 +219,13 @@ export default function TableComparePage() {
             <p>完整保留本次 run 回傳的順序與文字值。</p>
           </div>
           <div className="compare-result-actions">
-            <div className="compare-download-state">
-              <button type="button" disabled aria-describedby="compare-download-pending">下載比對結果 Excel</button>
-              <span id="compare-download-pending">Excel 下載準備中</span>
-            </div>
+            <ComparisonDownloadActions
+              status={comparisonDownload.status}
+              message={comparisonDownload.message}
+              errorMessage={comparisonDownload.error?.message ?? null}
+              disabled={!canDownload}
+              onDownload={() => void comparisonDownload.download()}
+            />
             <button type="button" className="button--secondary" disabled={transitioning} onClick={restart}>重新開始</button>
           </div>
         </div>
