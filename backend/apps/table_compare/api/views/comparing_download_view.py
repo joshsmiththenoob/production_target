@@ -1,6 +1,4 @@
-"""
-Duty on Merging prduction/area informations after checking sucessful pairing result from client.
-"""
+"""Download the complete, persisted table-comparison result as XLSX."""
 from uuid import UUID
 
 
@@ -17,16 +15,10 @@ from django.views.decorators.cache import never_cache
 
 
 from apps.jobs.models import Job
-from apps.volume_price_merge.api.serializers.merging_download_serializer import (
-    MergingDownloadRequestSerializer
-)
 from apps.table_compare.api.services.comparing_service import (
     ComparingService,
-    CompareJobError,
     ComparisonJobExpired,
     ComparisonJobNotRunnable,
-    ComparisonJobNotInStatus,
-    ComparisonInputError
 )
 from config.utils.response_formatter import ResponseFormatter
 from config.utils.response_serializers import ErrorResponseSerializer
@@ -56,13 +48,10 @@ class ComparingDownloadView(APIView):
     )
     
     @extend_schema(
-        summary="下載生產量值整併",
-        # # request payload
-        # request= None,
-        # parameters= [MergingDownloadRequestSerializer],
+        summary="下載表格比對結果",
+        request=None,
         responses={
             (200, XLSX_TYPE): OpenApiTypes.BINARY,
-            400: ErrorResponseSerializer,
             404: ErrorResponseSerializer,
             409: ErrorResponseSerializer,
             410: ErrorResponseSerializer,
@@ -91,22 +80,14 @@ class ComparingDownloadView(APIView):
                     message= "工作已過期，請重新上傳檔案。",
                 )
 
-        except ComparisonJobNotInStatus:
+        except ComparisonJobNotRunnable:
             return ResponseFormatter.error_response(
                     code= "job_not_runnable",
                     http_status= status.HTTP_409_CONFLICT,
-                    message= "目前的工作狀態無法執行合併。",
+                    message= "目前的工作尚無法下載比對結果。",
                 )
 
-        except ComparisonInputError:
-            return ResponseFormatter.error_response(
-                    code="invalid_product",
-                    http_status=status.HTTP_400_BAD_REQUEST,
-                    message="找不到指定作物，請重新選擇。",
-                )
-
-        except Exception as e:
-            print(e)
+        except Exception:
             return ResponseFormatter.error_response(
                     code= "internal_server_error",
                     http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,

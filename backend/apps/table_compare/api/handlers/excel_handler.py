@@ -390,13 +390,17 @@ class ExcelHandler:
         )
 
         # After completed row setting -> Insert rows to empty sheet
-        print(rows)
         for row in rows:
             sheet.append(row)
 
         # Sheet process
         # Handle title by using merging cells
-        sheet.merge_cells("A1:H1") # the title at first row -> represented by merged cell
+        sheet.merge_cells(
+            start_row=1,
+            start_column=1,
+            end_row=1,
+            end_column=len(headers),
+        )
         
         
         # Give the sheet style
@@ -440,9 +444,6 @@ class ExcelHandler:
         # Utialize .extend() method to add all elements of list.
         rows.extend(dataset_rows)
         rows.extend(note_rows)
-
-        print(rows)
-
 
         # After completed row setting -> Insert rows to empty sheet
         for row in rows:

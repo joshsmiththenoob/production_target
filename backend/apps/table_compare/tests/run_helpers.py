@@ -22,6 +22,63 @@ DEFAULT_PREVIEW = {
 }
 
 
+def make_saved_result(*, issues: list[str] | None = None) -> dict:
+    rows = [
+        {
+            "作物": "香蕉", "年度": 112, "指標": "產量",
+            "單位_pdf": "公噸", "大項_pdf": "果樹", "數值_pdf": 0,
+            "單位_excel": "公噸", "大項_excel": "果品", "數值_excel": "0",
+            "比對結果": "相同",
+        },
+        {
+            "作物": "鳳梨", "年度": 112, "指標": "產值",
+            "單位_pdf": "千元", "大項_pdf": "果樹",
+            "數值_pdf": "123.12345678901234567890",
+            "單位_excel": "千元", "大項_excel": "果品",
+            "數值_excel": "124.00000000000000000001",
+            "比對結果": "數值不同",
+        },
+        {
+            "作物": "茶", "年度": 112, "指標": "種植面積",
+            "單位_pdf": "公頃", "大項_pdf": "特用作物", "數值_pdf": 5,
+            "單位_excel": None, "大項_excel": None, "數值_excel": None,
+            "比對結果": "Excel 缺少資料",
+        },
+        {
+            "作物": "芒果", "年度": 112, "指標": "收穫面積",
+            "單位_pdf": None, "大項_pdf": None, "數值_pdf": None,
+            "單位_excel": "公頃", "大項_excel": "果品", "數值_excel": 6,
+            "比對結果": "PDF 缺少資料",
+        },
+        {
+            "作物": "番石榴", "年度": 112, "指標": "產量",
+            "單位_pdf": "公斤", "大項_pdf": "果樹", "數值_pdf": 7,
+            "單位_excel": "公噸", "大項_excel": "果品", "數值_excel": 7,
+            "比對結果": "單位不同",
+        },
+        {
+            "作物": "蓮霧", "年度": 112, "指標": "產量",
+            "單位_pdf": "公噸", "大項_pdf": "果樹", "數值_pdf": "-",
+            "單位_excel": "公噸", "大項_excel": "果品", "數值_excel": "",
+            "比對結果": "缺值／標記，暫不比對",
+        },
+    ]
+    return {
+        "row_count": len(rows),
+        "rows": rows,
+        "scope": {
+            "crops": [row["作物"] for row in rows],
+            "years": [112],
+            "metrics": ["產量", "產值", "種植面積", "收穫面積"],
+        },
+        "issues": (
+            ["PDF 第 3 頁未解析", "茶未在 PDF 解析資料中找到"]
+            if issues is None
+            else issues
+        ),
+    }
+
+
 def make_run_xlsx_bytes(*, value: int = 10) -> bytes:
     workbook = Workbook()
     sheet = workbook.active

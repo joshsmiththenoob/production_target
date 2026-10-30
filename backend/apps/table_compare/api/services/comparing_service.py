@@ -61,7 +61,11 @@ class ComparingService:
         }
 
         # 檢查工作與條件，並取得本次執行資格。
-        job = self._claim_job(public_id, scope, Job.Status.PENDING)
+        job = self._claim_job(
+            public_id,
+            required_status=Job.Status.PENDING,
+            scope=scope,
+        )
 
         try:
             result = self._build_result(job, scope)
@@ -151,10 +155,14 @@ class ComparingService:
             # the selected entries(ORM objects) will be locked that another request can NOT modify corresponding entries until this transaction is finished.
             job = Job.objects.select_for_update().get(public_id = public_id, kind = Job.Kind.TABLE_COMPARE, )
             
-            if job.expires_at <= timezone.now():
+            if (
+                job.status == Job.Status.EXPIRED
+                or job.expires_at <= timezone.now()
+            ):
                 # If it's out of date -> expired and raise error
-                job.status = Job.Status.EXPIRED
-                job.save(update_fields=["status", "updated_at"])
+                if job.status != Job.Status.EXPIRED:
+                    job.status = Job.Status.EXPIRED
+                    job.save(update_fields=["status", "updated_at"])
                 job_error = ComparisonJobExpired()
             elif job.status != required_status:
                 # If it's not pending job -> raise error 
@@ -233,15 +241,54 @@ class ComparingService:
         # Check if job is succeeded to extract.
         job = self._claim_job(public_id, Job.Status.SUCCEEDED, scope = None)
         # Get MergeJob for accessing result data 
-        compare_job = TableCompareJob.objects.get(job_id=job.pk)
+        try:
+            compare_job = TableCompareJob.objects.get(job_id=job.pk)
+        except TableCompareJob.DoesNotExist as error:
+            raise ComparisonJobNotRunnable() from error
         # # Then track to all input files of specific MergeJob to obtain information of input file
         # source_file_count = CompareInputFile.objects.filter(compare_job=compare_job,).count()
 
 
-        workbook_result_bytes = None
-        # Check if there is query condition for product or not
+        result_data = compare_job.result_data
+        required_fields = {"row_count", "rows", "scope", "issues"}
+        required_scope_fields = {"crops", "years", "metrics"}
+        row_fields = {
+            "作物",
+            "年度",
+            "指標",
+            "單位_pdf",
+            "大項_pdf",
+            "數值_pdf",
+            "單位_excel",
+            "大項_excel",
+            "數值_excel",
+            "比對結果",
+        }
+        is_valid_result = (
+            isinstance(result_data, dict)
+            and required_fields.issubset(result_data)
+            and isinstance(result_data.get("row_count"), int)
+            and not isinstance(result_data.get("row_count"), bool)
+            and isinstance(result_data.get("rows"), list)
+            and result_data.get("row_count") == len(result_data.get("rows", []))
+            and isinstance(result_data.get("scope"), dict)
+            and required_scope_fields.issubset(result_data.get("scope", {}))
+            and all(
+                isinstance(result_data["scope"][field], list)
+                for field in required_scope_fields
+            )
+            and isinstance(result_data.get("issues"), list)
+            and all(
+                isinstance(row, dict) and row_fields.issubset(row)
+                for row in result_data.get("rows", [])
+            )
+        )
+        if not is_valid_result:
+            raise ComparisonJobNotRunnable()
 
-        workbook_result_bytes = self.__excel_handler.build_comparison_workbook(compare_job.result_data)
+        workbook_result_bytes = self.__excel_handler.build_comparison_workbook(
+            result_data
+        )
 
 
         # Set download file information
@@ -272,8 +319,4 @@ class ComparisonJobExpired(CompareJobError):
 
 
 class ComparisonJobNotRunnable(CompareJobError):
-    pass
-
-
-class ComparisonJobNotInStatus(CompareJobError):
     pass
