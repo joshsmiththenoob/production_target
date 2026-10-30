@@ -50,3 +50,57 @@ class ExcelStyler:
         for cell in sheet[1]:
             cell.fill = PatternFill("solid", fgColor="1F4E79")
             cell.font = Font(name="Microsoft JhengHei", bold=True, color="FFFFFF")
+
+
+    def apply_comparison_style(self, sheet, total_rows: int, total_columns:int ) -> None:
+        
+        # Set all cell's font in the sheet.
+        for row in sheet.iter_rows(min_row=1, max_row=total_rows, min_col=1, max_col=total_columns):
+            for cell in row:
+                cell.font = Font(name="Microsoft JhengHei")
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+
+        # Set the first row's style -> Title style
+        for cell in sheet[1]:
+            cell.fill = PatternFill("solid", fgColor="1F4E79")
+            cell.font = Font(name="Microsoft JhengHei", bold=True, color="FFFFFF")
+
+
+        # Set the second row's style -> Header Style
+        for cell in sheet[2]:
+            cell.fill = PatternFill("solid", fgColor="D9EAF7")
+            cell.font = Font(name="Microsoft JhengHei", bold=True, color="17365D",)
+
+
+        # freeze panes
+        sheet.freeze_panes = "D3"
+        # grid line
+        side = Side(style="thin", color="D0D7DE")
+        border = Border(
+            left=side,
+            right=side,
+            top=side,
+            bottom=side,
+        )
+
+        # 從第二列開始：表頭與資料都加上框線
+        for row in sheet.iter_rows(
+            min_row=2,
+            max_row=total_rows,
+            min_col=1,
+            max_col=total_columns,
+        ):
+            for cell in row:
+                cell.border = border
+
+        sheet.sheet_view.showGridLines = False
+
+
+        # Adjust column width.
+        for column, width in {
+            "A": 22, "B": 10, "C": 16, "D": 14,
+            "E": 22, "F": 20, "G": 14, "H": 22,
+            "I": 20, "J": 28,
+        }.items():
+            sheet.column_dimensions[column].width = width
