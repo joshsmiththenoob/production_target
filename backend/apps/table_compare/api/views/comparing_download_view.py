@@ -105,7 +105,8 @@ class ComparingDownloadView(APIView):
                     message="找不到指定作物，請重新選擇。",
                 )
 
-        except Exception:
+        except Exception as e:
+            print(e)
             return ResponseFormatter.error_response(
                     code= "internal_server_error",
                     http_status= status.HTTP_500_INTERNAL_SERVER_ERROR,

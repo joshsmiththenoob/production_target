@@ -138,7 +138,7 @@ class ComparingService:
 
 
 
-    def _claim_job(self, public_id: UUID, scope: dict, required_status: str) -> Job:
+    def _claim_job(self, public_id: UUID, required_status: str, scope: dict = None) -> Job:
         """
         Get pending job
         then modify its status depends on expiration date etc.
@@ -160,7 +160,7 @@ class ComparingService:
                 # If it's not pending job -> raise error 
                 job_error = ComparisonJobNotRunnable()
             else:
-                if required_status == Job.Status.PENDING:
+                if required_status == Job.Status.PENDING and scope is not None:
                     # 不能只相信前端選項，後端也驗證所選範圍。
                     preview = job.table_compare.preview
 
@@ -231,17 +231,17 @@ class ComparingService:
         Create workbook depended on merged result in specific job.
         """
         # Check if job is succeeded to extract.
-        job = self._claim_job(public_id, Job.Status.SUCCEEDED)
+        job = self._claim_job(public_id, Job.Status.SUCCEEDED, scope = None)
         # Get MergeJob for accessing result data 
         compare_job = TableCompareJob.objects.get(job_id=job.pk)
-        # Then track to all input files of specific MergeJob to obtain information of input file
-        source_file_count = CompareInputFile.objects.filter(compare_job=compare_job,).count()
+        # # Then track to all input files of specific MergeJob to obtain information of input file
+        # source_file_count = CompareInputFile.objects.filter(compare_job=compare_job,).count()
 
 
         workbook_result_bytes = None
         # Check if there is query condition for product or not
 
-        workbook_result_bytes = self.__excel_handler.build_comparison_workbook(compare_job.result_data, compare_job.pairing_preview, source_file_count= source_file_count)
+        workbook_result_bytes = self.__excel_handler.build_comparison_workbook(compare_job.result_data)
 
 
         # Set download file information
@@ -275,5 +275,5 @@ class ComparisonJobNotRunnable(CompareJobError):
     pass
 
 
-class ComparisonJobNotInStatus(MergeJobError):
+class ComparisonJobNotInStatus(CompareJobError):
     pass

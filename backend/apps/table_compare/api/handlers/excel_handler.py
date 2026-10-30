@@ -350,20 +350,25 @@ class ExcelHandler:
 
     def build_comparison_workbook(self, result_data: dict[str, Any]) -> io.BytesIO:
         workbook = Workbook()
-        sheet = workbook.active
+        sheet = workbook.active  # Utilize active to create the first sheet
+
+
+        # Process the first sheet for creating long table
         sheet.title = "比對結果"
         # Create header of worksheet
         headers = [
             "作物", "年度", "指標",
-            "PDF單位", "PDF數值",
-            "Excel單位", "Excel數值", "比對結果",
+            "PDF單位", "PDF大項", "PDF數值",
+            "Excel單位", "Excel大項", "Excel數值", "比對結果",
             ]
 
         # Arrangment of row
         # first row: Title
         # second row: Column Headers
         rows = [
-            ["比對結果"] + [None] * (len(headers)-1),
+            # first row: Title
+            ["比對結果"] + [None] * (len(headers)-1), 
+            # second row: Column Headers
             headers,
         ]
         # Then third row: the beginning point of dataset
@@ -373,16 +378,82 @@ class ExcelHandler:
                 row["作物"],
                 row["年度"],
                 row["指標"],
-                row["PDF單位"],
-                row["PDF數值"],
-                row["Excel單位"],
-                row["Excel數值"],
+                row["單位_pdf"],
+                row["大項_pdf"],
+                row["數值_pdf"],
+                row["單位_excel"],
+                row["大項_excel"],
+                row["數值_excel"],
                 row["比對結果"]
             ]
             for row in result_data["rows"]
         )
 
-        rows
+        # After completed row setting -> Insert rows to empty sheet
+        print(rows)
+        for row in rows:
+            sheet.append(row)
 
-        merged_rows = result_data["rows"]
-        total_columns = len(columns) + 1
+        # Sheet process
+        # Handle title by using merging cells
+        sheet.merge_cells("A1:H1") # the title at first row -> represented by merged cell
+        
+        
+        # Give the sheet style
+        self.__excel_styler.apply_comparison_style(sheet, len(rows), len(headers))
+
+
+        # ------------------------------------------------------ #
+        # Process the second sheet for creating Long table
+        note_sheet = workbook.create_sheet(title= "比對範圍與解析提醒")
+        # Extract the scope (description) of result data 
+        scope = result_data["scope"]
+
+        # Create header of worksheet 
+        headers = ["項目", "內容"]
+
+        # Arrange rows for creating content
+        rows = []
+        rows = [
+            # first row: Title
+            ["比對範圍與解析提醒"] + [None] * (len(headers)-1), 
+            # second row: Column Headers
+            headers,
+        ]
+
+        # The thrid row: the beginning row of dataset
+        dataset_rows = [
+            ["作物", '、'.join(scope["crops"])],
+            ["實績年度", '、'.join(str(year) for year in scope["years"])],
+            ["指標", '、'.join(scope["metrics"])],
+            ["比對筆數", result_data["row_count"]],
+            ["提醒說明", "解析結果缺漏不代表原始 PDF 一定沒有資料。"],
+        ]
+
+        note_rows = [
+            ["來源解析提醒", issue] for issue in result_data["issues"]
+        ] if result_data["issues"] else [
+            ["來源解析提醒", "目前沒有來源解析提醒。"]
+        ]
+
+        # Complete whole rows = title + headers + dataset_rows + note_rows
+        # Utialize .extend() method to add all elements of list.
+        rows.extend(dataset_rows)
+        rows.extend(note_rows)
+
+        print(rows)
+
+
+        # After completed row setting -> Insert rows to empty sheet
+        for row in rows:
+            note_sheet.append(row)
+
+
+        # Give the sheet style
+        self.__excel_styler.style_note_sheet(note_sheet, len(rows))
+
+        # Finished 2 sheets of workbook -> output the excel
+        return self._workbook_bytes(workbook)
+
+
+
