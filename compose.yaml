@@ -55,6 +55,7 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
+      disable: true
       test:
         - CMD
         - python
@@ -81,7 +82,8 @@ services:
       context: ./frontend
     depends_on:
       backend:
-        condition: service_healthy
+        # condition: service_healthy
+        condition: service_started
     ports:
       - "5173:5173"
     networks:

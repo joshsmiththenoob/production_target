@@ -1,6 +1,6 @@
 import FeatureCard from '../components/FeatureCard'
 import HomeHero from '../components/HomeHero'
-import HealthStatus from '../features/health/HealthStatus'
+// import HealthStatus from '../features/health/HealthStatus'
 import volumePriceMergeImage from '../assets/feature-cards/volume-price-merge-card.png'
 import tableCompareImage from '../assets/feature-cards/table-compare-card.png'
 
@@ -32,7 +32,7 @@ export default function HomePage() {
             imageAlt=""
           />
         </div>
-        <HealthStatus />
+        {/* <HealthStatus /> */}
       </div>
     </>
   )
