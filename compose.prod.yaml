@@ -1,0 +1,32 @@
+services:
+  db:
+    restart: unless-stopped
+    healthcheck:
+      interval: 300s
+
+  backend:
+    restart: unless-stopped
+    ports: !reset []
+    volumes: !override
+      - ./media:/app/media
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:15173:80"
+    networks:
+      production-target: {}
+      gateway:
+        aliases:
+          - production-target-web
+
+  pgadmin:
+    ports: !override
+      - "127.0.0.1:15050:5050"
+
+networks:
+  gateway:
+    external: true
