@@ -97,6 +97,7 @@ class ComparingView(APIView):
             )
 
         except ComparisonInputError as error:
+            print(error)
             return ResponseFormatter.error_response(
                 code="invalid_comparison",
                 http_status=400,

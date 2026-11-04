@@ -10,13 +10,19 @@ from openpyxl import Workbook
 
 
 from .re_handler import REHandler
+from .excel_styler import ExcelStyler
+
+# 已確認只有單一作物、且允許省略作物列的資料。
+SINGLE_CROP_DEFAULTS = {
+    "稻米": "糙米",
+}
+
 
 
 class ProductNotFoundError(ValueError):
     """Raised when a requested crop is not present in a stored merge result."""
 
-    pass
-from .excel_styler import ExcelStyler
+
 
 
 class ExcelHandler:
@@ -70,8 +76,177 @@ class ExcelHandler:
             "data_start_index": data_start_index,
         }
 
-    
+    # def _detect_header_matrix_structure(self, rows) -> dict:
+    #     scan_limit = min(len(rows), 8)
+    #     # Find index of year header
+    #     year_row_index = [
+    #         index for index, row in enumerate(rows[:scan_limit])
+    #         if any(self.__RE_handler.is_year(cell) for cell in row)
+    #     ]
+    #     if not year_row_index:
+    #         raise ValueError("Can't find any year information in excel file. Please check header structure of file.")
+
+
     def normalize_input(self, rows: list[list[Any]], major_category: str, source_type: str, file_name: str) -> dict[str, Any]:
+        """
+        Forks the formation difference. They're year-in-rows formation and year-in-columns formation respectively.
+        """
+        if not rows:
+            raise ValueError(f"{file_name} 沒有資料。")
+
+        year_in_first_column = any(row and self.__RE_handler.is_year(row[0]) for row in rows)
+
+        if year_in_first_column:
+            return self.normalize_year_in_rows(rows, major_category, source_type, file_name)
+
+        return self.normalize_year_in_columns(rows, major_category, source_type, file_name)
+
+
+    def normalize_year_in_rows(self, rows: list[list[Any]], major_category: str, source_type: str, file_name: str) -> dict[str, Any]:
+        """
+        Process year-in-rows formation.
+        """
+        # # 1st row: title
+        # # 2nd row: statistics index
+        # # 3rd row: crop name
+        
+        # if (len(rows) < 4 or not rows[2] or self.__RE_handler.is_year(rows[2][0])):
+        #     raise ValueError(
+        #         f"「{file_name}」缺少作物列，請先確認作物名稱。"
+        #     )
+
+        # # record the header matrics: which header we got and where it was.
+        # metric_header = rows[1]
+        # crop_header = rows[2]
+        # year_rows = [
+        #     row for row in rows[3:]
+        #     if row and self.__RE_handler.is_year(row[0])
+        # ]
+
+        # if not year_rows:
+        #     raise ValueError(f"「{file_name}」找不到年度資料。")
+
+
+        if len(rows) < 3:
+            raise ValueError(f"「{file_name}」表格資料不足。")
+
+        metric_header = rows[1]
+        candidate_crop_header = rows[2]
+
+        # 第三列已經是年度，或只有空白／合計／總計：
+        # 表示這個版型沒有作物列。
+        no_crop_row = (
+            bool(candidate_crop_header)
+            and self.__RE_handler.is_year(candidate_crop_header[0])
+        ) or all(
+            self.__RE_handler.is_blank(value)
+            or self.__RE_handler.text(value) in {"合計", "總計"}
+            for value in candidate_crop_header
+        )
+
+        if no_crop_row:
+            default_crop = SINGLE_CROP_DEFAULTS.get(major_category)
+
+            if default_crop is None:
+                raise ValueError(
+                    f"「{file_name}」缺少作物列，請先確認作物名稱。"
+                )
+
+            # 僅替有指標名稱的欄位補上「糙米」。
+            crop_header = [
+                None
+                if index == 0 or self.__RE_handler.is_blank(label)
+                else default_crop
+                for index, label in enumerate(metric_header)
+            ]
+            data_start_index = 2
+
+        else:
+            # 其他新版檔案仍使用實際的作物列。
+            crop_header = candidate_crop_header
+            data_start_index = 3
+
+        # 只讀年度資料，自然跳過「總計」等表頭。
+        year_rows = [
+            row for row in rows[data_start_index:]
+            if row and self.__RE_handler.is_year(row[0])
+        ]
+
+        if not year_rows:
+            raise ValueError(f"「{file_name}」找不到年度資料。")
+
+
+        def cell(row, index):
+            # Check if column index got value in current row.
+            return row[index] if index < len(row) else None
+        
+        columns: OrderedDict[str, list[Any]] = OrderedDict()
+        output_rows = []
+        current_metric_row = None
+
+        for col_index in range(1, max(len(row) for row in rows)):
+            # For each column.
+            # Extract value fomr metric header, crop header and year rows.
+            metric = self.__RE_handler.text(
+                cell(metric_header, col_index)
+            )
+            crop = self.__RE_handler.text(
+                cell(crop_header, col_index)
+            )
+            has_values = any(
+                not self.__RE_handler.is_blank(cell(row, col_index))
+                for row in year_rows
+            )
+
+            if not metric and not crop and not has_values:
+                continue
+
+            # 非空指標代表新區塊，後面的空白欄沿用這個區塊。
+            # 同名指標若再次出現，仍保留為另一列。
+            if metric:
+                current_metric_row = {
+                    "metric": metric,
+                    "valuesByKey": {},
+                }
+                output_rows.append(current_metric_row)
+
+            if current_metric_row is None or not crop:
+                raise ValueError(
+                    f"「{file_name}」第 {col_index + 1} 欄"
+                    "缺少指標或作物。"
+                )
+
+            for row in year_rows:
+                year = self.__RE_handler.text(row[0])
+                key = self.column_key(major_category, year, crop)
+
+                columns.setdefault(key, {
+                    "majorCategory": major_category,
+                    "year": year,
+                    "crop": crop,
+                    "key": key,
+                })
+
+                current_metric_row["valuesByKey"].setdefault(
+                    key, []
+                ).append(cell(row, col_index))
+
+        if not columns or not output_rows:
+            raise ValueError(f"「{file_name}」找不到可合併資料。")
+
+        return {
+            "majorCategory": major_category,
+            "sourceType": source_type,
+            "fileName": file_name,
+            "columns": list(columns.values()),
+            "rows": output_rows,
+        }
+
+    
+    def normalize_year_in_columns(self, rows: list[list[Any]], major_category: str, source_type: str, file_name: str) -> dict[str, Any]:
+        """
+        Process year-in-columns formation.
+        """
         header = self._detect_header_matrix_structure(rows)
         max_columns = max((len(row) for row in rows), default=0)
         columns: list[dict[str, Any]] = []

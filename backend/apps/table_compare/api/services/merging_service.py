@@ -244,6 +244,7 @@ class MergingService:
             "file_buffer": workbook_result_bytes,
         }
 
+
     def _filter_by_product(self, result_data: dict[str, Any], product: str) -> dict[str, Any]:
         try:
             return self.__excel_handler.filter_by_product(result_data, product)
