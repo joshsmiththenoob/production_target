@@ -8,7 +8,7 @@ from typing import Any
 from collections import OrderedDict
 from openpyxl import Workbook
 
-
+from ..handlers.normalization import clean_label, normalize_crop_name
 from .re_handler import REHandler
 from .excel_styler import ExcelStyler
 
@@ -190,8 +190,10 @@ class ExcelHandler:
             metric = self.__RE_handler.text(
                 cell(metric_header, col_index)
             )
-            crop = self.__RE_handler.text(
-                cell(crop_header, col_index)
+            crop = normalize_crop_name(
+                self.__RE_handler.text(
+                    cell(crop_header, col_index)
+                )
             )
             has_values = any(
                 not self.__RE_handler.is_blank(cell(row, col_index))
@@ -261,6 +263,7 @@ class ExcelHandler:
 
 
             crop = rows[header["crop_row_index"]][col_index] if col_index < len(rows[header["crop_row_index"]]) else ""
+            crop = normalize_crop_name(self.__RE_handler.text(crop))
             if current_year and crop:
                 columns.append({
                     "majorCategory": major_category,

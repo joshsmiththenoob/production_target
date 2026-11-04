@@ -19,8 +19,8 @@ from ..normalization import (
 RICE_SOURCE_CROP_BY_METRIC = {
     "產量": "糙米",
     "產值": "糙米",
-    "種植面積": "稻米",
-    "收穫面積": "稻米",
+    "種植面積": "糙米",
+    "收穫面積": "糙米",
 }
 
 class ExcelTableAdapter(DataAdapter):

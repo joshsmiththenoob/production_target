@@ -215,6 +215,7 @@ class ComparingService:
                 has_selected_records = True
 
             if selected.duplicated(self._table_comparactor.KEYS).any():
+                print(selected)
                 raise ComparisonInputError(
                     f"{source} 的選定範圍出現重複比對鍵，請先確認來源資料。"
                 )
